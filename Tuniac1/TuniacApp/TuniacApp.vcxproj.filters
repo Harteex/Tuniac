@@ -135,6 +135,9 @@
     <ClCompile Include="sfmt.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="JellyfinService.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AboutWindow.h">
@@ -312,6 +315,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="sfmt.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="JellyfinService.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

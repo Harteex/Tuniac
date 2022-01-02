@@ -62,7 +62,8 @@ CCoreAudio::CCoreAudio(void) :
 	m_pMasteringVoice(NULL),
 	m_bReplayGainEnabled(true),
 	m_bUseAlbumGain(false),
-	fMixBuffer(NULL)
+	fMixBuffer(NULL),
+	m_JellyfinService(NULL)
 {
 }
 
@@ -179,6 +180,8 @@ bool			CCoreAudio::Startup()
 		FindClose(hFind); 
 	}
 
+	m_JellyfinService = new CJellyfinService();
+
 	return true;
 }
 
@@ -218,6 +221,12 @@ bool			CCoreAudio::Shutdown(void)
 		_aligned_free(fMixBuffer);
 	}
 
+	if (m_JellyfinService)
+	{
+		delete m_JellyfinService;
+		m_JellyfinService = NULL;
+	}
+
 	return true;
 }
 
@@ -238,6 +247,16 @@ bool			CCoreAudio::SetSource(LPTSTR szSource, float *fReplayGainAlbum, float *fR
 		CAutoLock	t(&m_Lock);
 		CheckOldStreams();
 	}
+
+	// TODO We should check an array of services here
+	// Also move these services to a new type of plugin
+	if (m_JellyfinService->CanHandle(szSource))
+	{
+		TCHAR szNewSource[512];
+		m_JellyfinService->TranslateSource(szNewSource, szSource);
+		szSource = szNewSource;
+	}
+
 
 	for(unsigned long x=0; x<m_AudioSources.GetCount(); x++)
 	{

@@ -381,6 +381,7 @@
     <ClCompile Include="FileAssoc.cpp" />
     <ClCompile Include="History.cpp" />
     <ClCompile Include="ImportExportManager.cpp" />
+    <ClCompile Include="JellyfinService.cpp" />
     <ClCompile Include="LibraryPlaylist.cpp" />
     <ClCompile Include="LogWindow.cpp" />
     <ClCompile Include="MediaLibrary.cpp" />
@@ -436,6 +437,7 @@
     <ClInclude Include="ITuniacPlugin.h" />
     <ClInclude Include="ITuniacVisPlugin.h" />
     <ClInclude Include="IWindow.h" />
+    <ClInclude Include="JellyfinService.h" />
     <ClInclude Include="LibraryEntry.h" />
     <ClInclude Include="LibraryPlaylist.h" />
     <ClInclude Include="LogWindow.h" />

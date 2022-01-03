@@ -253,8 +253,10 @@ bool			CCoreAudio::SetSource(LPTSTR szSource, float *fReplayGainAlbum, float *fR
 	if (m_JellyfinService->CanHandle(szSource))
 	{
 		TCHAR szNewSource[512];
-		m_JellyfinService->TranslateSource(szNewSource, szSource);
-		szSource = szNewSource;
+		if (m_JellyfinService->TranslateSource(szNewSource, 512, szSource))
+		{
+			szSource = szNewSource;
+		}
 	}
 
 

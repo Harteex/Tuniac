@@ -11,7 +11,7 @@ public:
 	~CJellyfinService(void);
 
 	bool CanHandle(LPTSTR szSource);
-	void TranslateSource(LPTSTR szTranslatedSource, LPTSTR szSource);
+	bool TranslateSource(LPTSTR szDest, size_t size, LPTSTR szSource);
 
 protected:
 

@@ -28,9 +28,23 @@ bool CJellyfinService::CanHandle(LPTSTR szSource)
 	return StrCmpNI(szSource, TEXT("jellyfin://"), 11) == 0;
 }
 
-void CJellyfinService::TranslateSource(LPTSTR szTranslatedSource, LPTSTR szSource)
+bool CJellyfinService::TranslateSource(LPTSTR szDest, size_t size, LPTSTR szSource)
 {
 	TCHAR itemId[33];
 	StringCchCopy(itemId, 33, szSource + 11);
-	StringCchPrintf(szTranslatedSource, 512, TEXT("%s/Audio/%s/stream?static=true\r\nX-Emby-Authorization: MediaBrowser Client=\"%s\", Device=\"%s\", DeviceId=\"%s\", Version=\"%s\", Token=\"%s\"\r\n"), m_szHost, itemId, CLIENT_NAME, m_szDevice, m_szDevice, m_szVersion, m_szToken);
+	
+	HRESULT result = StringCchPrintf(
+		szDest,
+		size,
+		TEXT("%s/Audio/%s/stream?static=true\r\nX-Emby-Authorization: MediaBrowser Client=\"%s\", Device=\"%s\", DeviceId=\"%s\", Version=\"%s\", Token=\"%s\"\r\n"),
+		m_szHost,
+		itemId,
+		CLIENT_NAME,
+		m_szDevice,
+		m_szDevice,
+		m_szVersion,
+		m_szToken
+	);
+
+	return SUCCEEDED(result);
 }

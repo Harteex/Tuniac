@@ -436,6 +436,7 @@
     <ClInclude Include="ITuniacExportPlugin.h" />
     <ClInclude Include="ITuniacImportPlugin.h" />
     <ClInclude Include="ITuniacPlugin.h" />
+    <ClInclude Include="ITuniacServicePlugin.h" />
     <ClInclude Include="ITuniacVisPlugin.h" />
     <ClInclude Include="IWindow.h" />
     <ClInclude Include="JellyfinService.h" />

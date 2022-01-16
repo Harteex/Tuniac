@@ -10,7 +10,7 @@ BOOL APIENTRY DllMain(HANDLE hModule,
 	return TRUE;
 }
 
-extern "C" __declspec(dllexport) ITuniacServicePlugin * CreateTuniacPlugin(void)
+extern "C" __declspec(dllexport) ITuniacServicePlugin * CreateTuniacServicePlugin(void)
 {
 	ITuniacServicePlugin* pPlugin = new CJellyfinService;
 	return pPlugin;
@@ -44,7 +44,7 @@ LPTSTR			CJellyfinService::GetPluginName(void)
 
 unsigned long	CJellyfinService::GetFlags(void)
 {
-	return PLUGINFLAGS_ABOUT | PLUGINFLAGS_CONFIG;
+	return SERVICEPLUGINFLAGS_ABOUT | SERVICEPLUGINFLAGS_CONFIG;
 }
 
 bool			CJellyfinService::SetHelper(ITuniacServicePluginHelper* pHelper)
@@ -69,108 +69,108 @@ LRESULT CALLBACK	CJellyfinService::DlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, 
 
 	switch (uMsg)
 	{
-	case WM_INITDIALOG:
-	{
-		SetWindowLongPtr(hDlg, GWLP_USERDATA, lParam);
-		pPopupNotify = (CJellyfinService*)lParam;
-
-		SendDlgItemMessage(hDlg, IDC_FULLSCREENINHIBIT_CHECK, BM_SETCHECK, /*pPopupNotify->m_bAllowInhibit*/true ? BST_CHECKED : BST_UNCHECKED, 0);
-
-		SendDlgItemMessage(hDlg, IDC_TRIGGER_MANUAL, BM_SETCHECK, /*pPopupNotify->m_bManualTrigger*/true ? BST_CHECKED : BST_UNCHECKED, 0);
-		SendDlgItemMessage(hDlg, IDC_TRIGGER_MANUALBLIND, BM_SETCHECK, /*pPopupNotify->m_bManualBlindTrigger*/true ? BST_CHECKED : BST_UNCHECKED, 0);
-		SendDlgItemMessage(hDlg, IDC_TRIGGER_AUTO, BM_SETCHECK, /*pPopupNotify->m_bAutoTrigger*/true ? BST_CHECKED : BST_UNCHECKED, 0);
-		SendDlgItemMessage(hDlg, IDC_TRIGGER_AUTOBLIND, BM_SETCHECK, /*pPopupNotify->m_bAutoBlindTrigger*/true ? BST_CHECKED : BST_UNCHECKED, 0);
-
-
-		SendDlgItemMessage(hDlg, IDC_FORMATTING_NORMALFORMAT, CB_RESETCONTENT, 0, 0);
-		SendDlgItemMessage(hDlg, IDC_FORMATTING_NORMALFORMAT, WM_SETTEXT, 0, (LPARAM)/*pPopupNotify->m_szNormalFormatString*/TEXT("fixme"));
-		SendDlgItemMessage(hDlg, IDC_FORMATTING_NORMALFORMAT, CB_ADDSTRING, 0, (LPARAM)TEXT("@T - @A"));
-		SendDlgItemMessage(hDlg, IDC_FORMATTING_NORMALFORMAT, CB_ADDSTRING, 0, (LPARAM)TEXT("@A - @T"));
-
-		SendDlgItemMessage(hDlg, IDC_FORMATTING_STREAMFORMAT, CB_RESETCONTENT, 0, 0);
-		SendDlgItemMessage(hDlg, IDC_FORMATTING_STREAMFORMAT, WM_SETTEXT, 0, (LPARAM)/*pPopupNotify->m_szStreamFormatString*/TEXT("fixme"));
-		SendDlgItemMessage(hDlg, IDC_FORMATTING_STREAMFORMAT, CB_ADDSTRING, 0, (LPARAM)TEXT("@T - @A"));
-		SendDlgItemMessage(hDlg, IDC_FORMATTING_STREAMFORMAT, CB_ADDSTRING, 0, (LPARAM)TEXT("@A - @T"));
-
-
-	}
-	break;
-
-	/*case WM_COMMAND:
-		switch (LOWORD(wParam))
+		case WM_INITDIALOG:
 		{
-		case IDC_FULLSCREENINHIBIT_CHECK:
-		{
-			int State = SendDlgItemMessage(hDlg, IDC_FULLSCREENINHIBIT_CHECK, BM_GETCHECK, 0, 0);
-			pPopupNotify->m_bAllowInhibit = State == BST_UNCHECKED ? FALSE : TRUE;
-			m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("AllowInhibit"), REG_DWORD, (LPBYTE)&m_bAllowInhibit, sizeof(int));
+			SetWindowLongPtr(hDlg, GWLP_USERDATA, lParam);
+			pPopupNotify = (CJellyfinService*)lParam;
+
+			SendDlgItemMessage(hDlg, IDC_FULLSCREENINHIBIT_CHECK, BM_SETCHECK, /*pPopupNotify->m_bAllowInhibit*/true ? BST_CHECKED : BST_UNCHECKED, 0);
+
+			SendDlgItemMessage(hDlg, IDC_TRIGGER_MANUAL, BM_SETCHECK, /*pPopupNotify->m_bManualTrigger*/true ? BST_CHECKED : BST_UNCHECKED, 0);
+			SendDlgItemMessage(hDlg, IDC_TRIGGER_MANUALBLIND, BM_SETCHECK, /*pPopupNotify->m_bManualBlindTrigger*/true ? BST_CHECKED : BST_UNCHECKED, 0);
+			SendDlgItemMessage(hDlg, IDC_TRIGGER_AUTO, BM_SETCHECK, /*pPopupNotify->m_bAutoTrigger*/true ? BST_CHECKED : BST_UNCHECKED, 0);
+			SendDlgItemMessage(hDlg, IDC_TRIGGER_AUTOBLIND, BM_SETCHECK, /*pPopupNotify->m_bAutoBlindTrigger*/true ? BST_CHECKED : BST_UNCHECKED, 0);
+
+
+			SendDlgItemMessage(hDlg, IDC_FORMATTING_NORMALFORMAT, CB_RESETCONTENT, 0, 0);
+			SendDlgItemMessage(hDlg, IDC_FORMATTING_NORMALFORMAT, WM_SETTEXT, 0, (LPARAM)/*pPopupNotify->m_szNormalFormatString*/TEXT("fixme"));
+			SendDlgItemMessage(hDlg, IDC_FORMATTING_NORMALFORMAT, CB_ADDSTRING, 0, (LPARAM)TEXT("@T - @A"));
+			SendDlgItemMessage(hDlg, IDC_FORMATTING_NORMALFORMAT, CB_ADDSTRING, 0, (LPARAM)TEXT("@A - @T"));
+
+			SendDlgItemMessage(hDlg, IDC_FORMATTING_STREAMFORMAT, CB_RESETCONTENT, 0, 0);
+			SendDlgItemMessage(hDlg, IDC_FORMATTING_STREAMFORMAT, WM_SETTEXT, 0, (LPARAM)/*pPopupNotify->m_szStreamFormatString*/TEXT("fixme"));
+			SendDlgItemMessage(hDlg, IDC_FORMATTING_STREAMFORMAT, CB_ADDSTRING, 0, (LPARAM)TEXT("@T - @A"));
+			SendDlgItemMessage(hDlg, IDC_FORMATTING_STREAMFORMAT, CB_ADDSTRING, 0, (LPARAM)TEXT("@A - @T"));
+
+
 		}
 		break;
 
-		case IDC_TRIGGER_MANUAL:
-		{
-			int State = SendDlgItemMessage(hDlg, IDC_TRIGGER_MANUAL, BM_GETCHECK, 0, 0);
-			pPopupNotify->m_bManualTrigger = State == BST_UNCHECKED ? FALSE : TRUE;
-			m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("Manual"), REG_DWORD, (LPBYTE)&m_bManualTrigger, sizeof(int));
-		}
-		break;
+		case WM_COMMAND:
+			switch (LOWORD(wParam))
+			{
+				/*case IDC_FULLSCREENINHIBIT_CHECK:
+				{
+					int State = SendDlgItemMessage(hDlg, IDC_FULLSCREENINHIBIT_CHECK, BM_GETCHECK, 0, 0);
+					pPopupNotify->m_bAllowInhibit = State == BST_UNCHECKED ? FALSE : TRUE;
+					m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("AllowInhibit"), REG_DWORD, (LPBYTE)&m_bAllowInhibit, sizeof(int));
+				}
+				break;
 
-		case IDC_TRIGGER_MANUALBLIND:
-		{
-			int State = SendDlgItemMessage(hDlg, IDC_TRIGGER_MANUALBLIND, BM_GETCHECK, 0, 0);
-			pPopupNotify->m_bManualBlindTrigger = State == BST_UNCHECKED ? FALSE : TRUE;
-			m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("ManualBlind"), REG_DWORD, (LPBYTE)&m_bManualBlindTrigger, sizeof(int));
-		}
-		break;
+				case IDC_TRIGGER_MANUAL:
+				{
+					int State = SendDlgItemMessage(hDlg, IDC_TRIGGER_MANUAL, BM_GETCHECK, 0, 0);
+					pPopupNotify->m_bManualTrigger = State == BST_UNCHECKED ? FALSE : TRUE;
+					m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("Manual"), REG_DWORD, (LPBYTE)&m_bManualTrigger, sizeof(int));
+				}
+				break;
 
-		case IDC_TRIGGER_AUTO:
-		{
-			int State = SendDlgItemMessage(hDlg, IDC_TRIGGER_AUTO, BM_GETCHECK, 0, 0);
-			pPopupNotify->m_bAutoTrigger = State == BST_UNCHECKED ? FALSE : TRUE;
-			m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("Auto"), REG_DWORD, (LPBYTE)&m_bAutoTrigger, sizeof(int));
-		}
-		break;
+				case IDC_TRIGGER_MANUALBLIND:
+				{
+					int State = SendDlgItemMessage(hDlg, IDC_TRIGGER_MANUALBLIND, BM_GETCHECK, 0, 0);
+					pPopupNotify->m_bManualBlindTrigger = State == BST_UNCHECKED ? FALSE : TRUE;
+					m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("ManualBlind"), REG_DWORD, (LPBYTE)&m_bManualBlindTrigger, sizeof(int));
+				}
+				break;
 
-		case IDC_TRIGGER_AUTOBLIND:
-		{
-			int State = SendDlgItemMessage(hDlg, IDC_TRIGGER_AUTOBLIND, BM_GETCHECK, 0, 0);
-			pPopupNotify->m_bAutoBlindTrigger = State == BST_UNCHECKED ? FALSE : TRUE;
-			m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("AutoBlind"), REG_DWORD, (LPBYTE)&m_bAutoBlindTrigger, sizeof(int));
-		}
-		break;
+				case IDC_TRIGGER_AUTO:
+				{
+					int State = SendDlgItemMessage(hDlg, IDC_TRIGGER_AUTO, BM_GETCHECK, 0, 0);
+					pPopupNotify->m_bAutoTrigger = State == BST_UNCHECKED ? FALSE : TRUE;
+					m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("Auto"), REG_DWORD, (LPBYTE)&m_bAutoTrigger, sizeof(int));
+				}
+				break;
 
-		case IDC_FORMATTING_NORMALFORMAT:
-		{
-			SendDlgItemMessage(hDlg, IDC_FORMATTING_NORMALFORMAT, WM_GETTEXT, 256, (LPARAM)m_szNormalFormatString);
-			m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("NormalFormatString"), REG_DWORD, (LPBYTE)&m_szNormalFormatString, (128 * sizeof(WCHAR)));
-		}
-		break;
+				case IDC_TRIGGER_AUTOBLIND:
+				{
+					int State = SendDlgItemMessage(hDlg, IDC_TRIGGER_AUTOBLIND, BM_GETCHECK, 0, 0);
+					pPopupNotify->m_bAutoBlindTrigger = State == BST_UNCHECKED ? FALSE : TRUE;
+					m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("AutoBlind"), REG_DWORD, (LPBYTE)&m_bAutoBlindTrigger, sizeof(int));
+				}
+				break;
 
-		case IDC_FORMATTING_STREAMFORMAT:
-		{
-			SendDlgItemMessage(hDlg, IDC_FORMATTING_STREAMFORMAT, WM_GETTEXT, 256, (LPARAM)m_szStreamFormatString);
-			m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("StreamFormatString"), REG_DWORD, (LPBYTE)&m_szStreamFormatString, (128 * sizeof(WCHAR)));
-		}
-		break;
+				case IDC_FORMATTING_NORMALFORMAT:
+				{
+					SendDlgItemMessage(hDlg, IDC_FORMATTING_NORMALFORMAT, WM_GETTEXT, 256, (LPARAM)m_szNormalFormatString);
+					m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("NormalFormatString"), REG_DWORD, (LPBYTE)&m_szNormalFormatString, (128 * sizeof(WCHAR)));
+				}
+				break;
 
-		case IDC_FORMATTING_FORMATSTRING_HELP:
-		{
-			MessageBox(hDlg, FORMATSTRING_HELP, TEXT("Help"), MB_OK | MB_ICONINFORMATION);
-		}
-		break;
+				case IDC_FORMATTING_STREAMFORMAT:
+				{
+					SendDlgItemMessage(hDlg, IDC_FORMATTING_STREAMFORMAT, WM_GETTEXT, 256, (LPARAM)m_szStreamFormatString);
+					m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("StreamFormatString"), REG_DWORD, (LPBYTE)&m_szStreamFormatString, (128 * sizeof(WCHAR)));
+				}
+				break;
 
-		case IDOK:
-		case IDCANCEL:
-		{
-			EndDialog(hDlg, wParam);
-			return TRUE;
-		}
-		break;
-		}
-		break;*/
+				case IDC_FORMATTING_FORMATSTRING_HELP:
+				{
+					MessageBox(hDlg, FORMATSTRING_HELP, TEXT("Help"), MB_OK | MB_ICONINFORMATION);
+				}
+				break;*/
 
-	default:
-		return FALSE;
+				case IDOK:
+				case IDCANCEL:
+				{
+					EndDialog(hDlg, wParam);
+					return TRUE;
+				}
+				break;
+			}
+			break;
+
+		default:
+			return FALSE;
 	}
 
 	return TRUE;

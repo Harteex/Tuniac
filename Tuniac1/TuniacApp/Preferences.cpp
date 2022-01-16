@@ -951,9 +951,9 @@ LRESULT CALLBACK CPreferences::ServicesProc(HWND hDlg, UINT uMsg, WPARAM wParam,
 		item.mask = LVIF_TEXT;
 		item.iSubItem = 0;
 
-		/*for (unsigned int i = 0; i < tuniacApp.m_PluginManager.GetNumPlugins(); i++)
+		for (unsigned int i = 0; i < tuniacApp.m_ServicePluginManager.GetNumPlugins(); i++)
 		{
-			PluginEntry* pPE = tuniacApp.m_PluginManager.GetPluginAtIndex(i);
+			ServicePluginEntry* pPE = tuniacApp.m_ServicePluginManager.GetPluginAtIndex(i);
 			if (pPE == NULL) break;
 
 			TCHAR szItem[128];
@@ -962,7 +962,7 @@ LRESULT CALLBACK CPreferences::ServicesProc(HWND hDlg, UINT uMsg, WPARAM wParam,
 			item.pszText = szItem;
 			item.iItem = i;
 			ListView_InsertItem(hListView, &item);
-		}*/
+		}
 		SendMessage(hDlg, WM_USER, 0, 0);
 
 	}
@@ -972,10 +972,10 @@ LRESULT CALLBACK CPreferences::ServicesProc(HWND hDlg, UINT uMsg, WPARAM wParam,
 	{
 		HWND hList = GetDlgItem(hDlg, IDC_SERVICEPLUGIN_LIST);
 
-		/*for (unsigned int i = 0; i < tuniacApp.m_PluginManager.GetNumPlugins(); i++)
+		for (unsigned int i = 0; i < tuniacApp.m_ServicePluginManager.GetNumPlugins(); i++)
 		{
-			ListView_SetCheckState(hList, i, tuniacApp.m_PluginManager.IsPluginEnabled(i) ? TRUE : FALSE);
-		}*/
+			ListView_SetCheckState(hList, i, tuniacApp.m_ServicePluginManager.IsPluginEnabled(i) ? TRUE : FALSE);
+		}
 	}
 	break;
 
@@ -991,7 +991,7 @@ LRESULT CALLBACK CPreferences::ServicesProc(HWND hDlg, UINT uMsg, WPARAM wParam,
 			int iSel = ListView_GetNextItem(lpView->hdr.hwndFrom, -1, LVNI_SELECTED);
 			if (iSel >= 0)
 			{
-				/*PluginEntry* pPE = tuniacApp.m_PluginManager.GetPluginAtIndex(iSel);
+				ServicePluginEntry* pPE = tuniacApp.m_ServicePluginManager.GetPluginAtIndex(iSel);
 
 				if (pPE != NULL && pPE->ulFlags & PLUGINFLAGS_ABOUT)
 				{
@@ -1009,7 +1009,7 @@ LRESULT CALLBACK CPreferences::ServicesProc(HWND hDlg, UINT uMsg, WPARAM wParam,
 				else
 				{
 					EnableWindow(GetDlgItem(hDlg, IDC_SERVICEPLUGIN_CONFIGURE), FALSE);
-				}*/
+				}
 
 
 			}
@@ -1024,11 +1024,11 @@ LRESULT CALLBACK CPreferences::ServicesProc(HWND hDlg, UINT uMsg, WPARAM wParam,
 			if ((lpView->uChanged & LVIF_STATE) && lpView->uOldState && (lpView->uNewState & LVIS_STATEIMAGEMASK))
 			{
 				bool bChecked = ListView_GetCheckState(lpView->hdr.hwndFrom, lpView->iItem);
-				/*if (bChecked != tuniacApp.m_PluginManager.IsPluginEnabled(lpView->iItem))
+				if (bChecked != tuniacApp.m_ServicePluginManager.IsPluginEnabled(lpView->iItem))
 				{
-					tuniacApp.m_PluginManager.EnablePlugin(lpView->iItem, bChecked);
+					tuniacApp.m_ServicePluginManager.EnablePlugin(lpView->iItem, bChecked);
 					SendMessage(hDlg, WM_USER, 0, 0);
-				}*/
+				}
 			}
 
 		}
@@ -1052,52 +1052,52 @@ LRESULT CALLBACK CPreferences::ServicesProc(HWND hDlg, UINT uMsg, WPARAM wParam,
 		{
 		case IDC_SERVICEPLUGIN_ABOUT:
 		{
-			/*int iSel = ListView_GetNextItem(hList, -1, LVNI_SELECTED);
+			int iSel = ListView_GetNextItem(hList, -1, LVNI_SELECTED);
 			if (iSel < 0) break;
-			PluginEntry* pPE = tuniacApp.m_PluginManager.GetPluginAtIndex(iSel);
-			if (pPE == NULL || !(pPE->ulFlags & PLUGINFLAGS_ABOUT)) break;
+			ServicePluginEntry* pPE = tuniacApp.m_ServicePluginManager.GetPluginAtIndex(iSel);
+			if (pPE == NULL || !(pPE->ulFlags & SERVICEPLUGINFLAGS_ABOUT)) break;
 
 			if (pPE->pPlugin == NULL)
 			{
 				if (IDYES == MessageBox(hDlg, TEXT("Plugin must be loaded to do this.\n\nEnable plugin now?"), TEXT(""), MB_YESNO | MB_ICONINFORMATION))
 				{
-					tuniacApp.m_PluginManager.EnablePlugin(iSel, TRUE);
+					tuniacApp.m_ServicePluginManager.EnablePlugin(iSel, TRUE);
 					SendMessage(hDlg, WM_USER, 0, 0);
 				}
 			}
 			if (pPE->pPlugin != NULL)
-				pPE->pPlugin->About(hDlg);*/
+				pPE->pPlugin->About(hDlg);
 		}
 		break;
 
 		case IDC_SERVICEPLUGIN_CONFIGURE:
 		{
-			/*int iSel = ListView_GetNextItem(hList, -1, LVNI_SELECTED);
+			int iSel = ListView_GetNextItem(hList, -1, LVNI_SELECTED);
 			if (iSel < 0) break;
-			PluginEntry* pPE = tuniacApp.m_PluginManager.GetPluginAtIndex(iSel);
+			ServicePluginEntry* pPE = tuniacApp.m_ServicePluginManager.GetPluginAtIndex(iSel);
 			if (pPE == NULL || !(pPE->ulFlags & PLUGINFLAGS_CONFIG)) break;
 
 			if (pPE->pPlugin == NULL)
 			{
 				if (IDYES == MessageBox(hDlg, TEXT("Plugin must be loaded to do this.\n\nEnable plugin now?"), TEXT(""), MB_YESNO | MB_ICONINFORMATION))
 				{
-					tuniacApp.m_PluginManager.EnablePlugin(iSel, TRUE);
+					tuniacApp.m_ServicePluginManager.EnablePlugin(iSel, TRUE);
 					SendMessage(hDlg, WM_USER, 0, 0);
 				}
 			}
 			if (pPE->pPlugin != NULL)
-				pPE->pPlugin->Configure(hDlg);*/
+				pPE->pPlugin->Configure(hDlg);
 		}
 		break;
 
 		case IDC_SERVICEPLUGIN_ENABLEALL:
 		case IDC_SERVICEPLUGIN_DISABLEALL:
 		{
-			/*for (unsigned int i = 0; i < tuniacApp.m_PluginManager.GetNumPlugins(); i++)
+			for (unsigned int i = 0; i < tuniacApp.m_ServicePluginManager.GetNumPlugins(); i++)
 			{
-				tuniacApp.m_PluginManager.EnablePlugin(i, wCmdID == IDC_SERVICEPLUGIN_ENABLEALL);
+				tuniacApp.m_ServicePluginManager.EnablePlugin(i, wCmdID == IDC_SERVICEPLUGIN_ENABLEALL);
 			}
-			SendMessage(hDlg, WM_USER, 0, 0);*/
+			SendMessage(hDlg, WM_USER, 0, 0);
 		}
 		break;
 		}

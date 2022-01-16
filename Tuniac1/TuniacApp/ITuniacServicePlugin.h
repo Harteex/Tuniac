@@ -7,16 +7,16 @@ class ITuniacServicePluginHelper
 public:
 
 	virtual void		LogMessage(LPTSTR szModuleName, LPTSTR szMessage) = 0;
-	virtual HINSTANCE	GetMainInstance(void) = 0;
-	virtual HWND		GetMainWindow(void) = 0;
+	//virtual HINSTANCE	GetMainInstance(void) = 0;
+	//virtual HWND		GetMainWindow(void) = 0;
 
 	virtual bool		PreferencesGet(LPCTSTR szSubKey, LPCTSTR lpValueName, LPDWORD lpType, LPBYTE lpData, LPDWORD lpcbData) = 0;
 	virtual bool		PreferencesSet(LPCTSTR szSubKey, LPCTSTR lpValueName, DWORD dwType, const BYTE* lpData, DWORD cbData) = 0;
 };
 
 
-#define PLUGINFLAGS_ABOUT				0x00000001
-#define PLUGINFLAGS_CONFIG				0x00000002
+#define SERVICEPLUGINFLAGS_ABOUT				0x00000001
+#define SERVICEPLUGINFLAGS_CONFIG				0x00000002
 
 
 class ITuniacServicePlugin

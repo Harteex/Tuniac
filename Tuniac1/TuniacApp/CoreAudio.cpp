@@ -181,6 +181,8 @@ bool			CCoreAudio::Startup()
 	}
 
 	m_JellyfinService = new CJellyfinService();
+	//m_JellyfinService->Login(L"https://test.com", L"asdf", L"pass");
+	//m_JellyfinService->DoHttpRequest2();
 
 	return true;
 }
@@ -250,14 +252,14 @@ bool			CCoreAudio::SetSource(LPTSTR szSource, float *fReplayGainAlbum, float *fR
 
 	// TODO We should check an array of services here
 	// Also move these services to a new type of plugin
-	if (m_JellyfinService->CanHandle(szSource))
+	/*if (m_JellyfinService->CanHandle(szSource))
 	{
 		TCHAR szNewSource[512];
 		if (m_JellyfinService->TranslateSource(szNewSource, 512, szSource))
 		{
 			szSource = szNewSource;
 		}
-	}
+	}*/
 
 
 	for(unsigned long x=0; x<m_AudioSources.GetCount(); x++)

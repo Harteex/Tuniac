@@ -141,18 +141,24 @@
     <ClInclude Include="rapidjson\writer.h">
       <Filter>RapidJSON</Filter>
     </ClInclude>
+    <ClCompile Include="HttpService.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="JellyfinService.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="resource.h">
+    <ClInclude Include="HttpService.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="JellyfinService.h">

@@ -65,4 +65,13 @@ public:
 
 	bool				About(HWND hWndParent);
 	bool				Configure(HWND hWndParent);
+
+	// Login to Jellyfin server and retrieve authentication token
+	// szServerUrl: Full URL to Jellyfin server (e.g., "https://jellyfin.example.com")
+	// szUsername: Username for authentication
+	// szPassword: Password for authentication
+	// szTokenOut: Buffer to receive the authentication token
+	// tokenSize: Size of the token buffer in characters
+	// Returns: true if login successful, false otherwise
+	bool				Login(LPTSTR szServerUrl, LPTSTR szUsername, LPTSTR szPassword, LPTSTR szTokenOut, size_t tokenSize);
 };

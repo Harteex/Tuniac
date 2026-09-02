@@ -57,7 +57,7 @@ protected:
 	CCriticalSection					m_Lock;
 
 	IXAudio2				*			m_pXAudio;
-    IXAudio2MasteringVoice	*			m_pMasteringVoice;
+	IXAudio2MasteringVoice	*			m_pMasteringVoice;
 
 	CJellyfinService		*			m_JellyfinService;
 
@@ -137,12 +137,12 @@ public:
 	// Called by XAudio2 just before an audio processing pass begins.
 	STDMETHOD_(void, OnProcessingPassStart) (THIS) { };
 
-    // Called just after an audio processing pass ends.
+	// Called just after an audio processing pass ends.
 	STDMETHOD_(void, OnProcessingPassEnd) (THIS) { };
 
-    // Called in the event of a critical system error which requires XAudio2
-    // to be closed down and restarted.  The error code is given in Error.
-    STDMETHOD_(void, OnCriticalError) (THIS_ HRESULT Error);
+	// Called in the event of a critical system error which requires XAudio2
+	// to be closed down and restarted.  The error code is given in Error.
+	STDMETHOD_(void, OnCriticalError) (THIS_ HRESULT Error);
 
 //IMMNotificationClient inherited methods
 public:

@@ -14,3 +14,4 @@
 #include <shlwapi.h>
 #include <Strsafe.h>
 #include <shellapi.h>
+#include <WinInet.h>

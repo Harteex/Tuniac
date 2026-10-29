@@ -10,9 +10,9 @@ by Brett Hoyle and others — kept building on modern Visual Studio. Expect
 C-with-classes: hand-rolled containers, `TCHAR` strings, Win32 message loops, manual
 `new`/`delete`, `#define` constants rather than enums.
 
-This checkout is a fork. `master` tracks upstream; **the `jellyfin` branch is the fork
-owner's own work**, adding a *service plugin* system with a Jellyfin streaming plugin as
-its first consumer.
+This checkout is a fork. `master` tracks upstream; **the `jellyfin2` branch is the fork
+owner's own work** (branched from the earlier `jellyfin` branch), adding a *service
+plugin* system with a Jellyfin streaming plugin as its first consumer.
 
 ## Repository layout
 
@@ -28,7 +28,7 @@ Tuniac/                     <- git root (this repo)
     PopupNotify/ NowPlayingTxt/ mIRCSpammer/  <- notification plugins
     NFN_Exporter/ textOutput_Plugin/ MMShellHook/ MMShellHookHelper/
     SVPVisualPlugin/        <- visualisation plugin (Win32 only)
-    Jellyfin_Plugin/        <- NEW on the jellyfin branch: the first service plugin
+    Jellyfin_Plugin/        <- NEW on the jellyfin branches: the first service plugin
     Housekeeping/           <- build scripts, How_To_Build.txt, TODO.txt, changelog
     Guide/                  <- end-user HTML help
     Setup-Scripts/          <- Inno Setup installer scripts
@@ -102,7 +102,9 @@ Full detail: **[docs/architecture.md](docs/architecture.md)**.
 - Bumping an interface version (`ITUNIAC*_VERSION`) invalidates every existing DLL of that
   family; the loader rejects mismatches with a message box.
 
-## Current branch: `jellyfin`
+## Current branch: `jellyfin2`
+
+Working plan and checklist: **[docs/plan.md](docs/plan.md)**.
 
 Goal: stream from a Jellyfin server through a **new, general plugin type** for streaming
 services, rather than as a hardcoded special case.

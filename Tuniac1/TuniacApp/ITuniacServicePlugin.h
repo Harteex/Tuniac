@@ -39,5 +39,5 @@ public:
 typedef ITuniacServicePlugin* (*CreateTuniacServicePluginFunc)(void);
 extern "C" __declspec(dllexport) ITuniacServicePlugin * CreateTuniacServicePlugin(void);
 
-typedef unsigned long (*GetTuniacPluginVersionFunc)(void);
+typedef unsigned long (*GetTuniacServicePluginVersionFunc)(void);
 extern "C" __declspec(dllexport) unsigned long		GetTuniacServicePluginVersion(void);

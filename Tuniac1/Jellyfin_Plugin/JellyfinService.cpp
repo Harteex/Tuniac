@@ -6,11 +6,16 @@
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 
+static HINSTANCE g_hInstance = NULL;
+
 BOOL APIENTRY DllMain(HANDLE hModule,
 	DWORD  ulReason,
 	LPVOID lpReserved
 )
 {
+	if (ulReason == DLL_PROCESS_ATTACH)
+		g_hInstance = (HINSTANCE)hModule;
+
 	return TRUE;
 }
 
@@ -20,7 +25,7 @@ extern "C" __declspec(dllexport) ITuniacServicePlugin * CreateTuniacServicePlugi
 	return pPlugin;
 }
 
-extern "C" __declspec(dllexport) unsigned long		GetTuniacPluginVersion(void)
+extern "C" __declspec(dllexport) unsigned long		GetTuniacServicePluginVersion(void)
 {
 	return ITUNIACSERVICEPLUGIN_VERSION;
 }
@@ -188,7 +193,7 @@ bool			CJellyfinService::About(HWND hWndParent)
 
 bool			CJellyfinService::Configure(HWND hWndParent)
 {
-	DialogBoxParam(GetModuleHandle(L"Jellyfin_Plugin.dll"), MAKEINTRESOURCE(IDD_NOTIFYPREFWINDOW), hWndParent, (DLGPROC)DlgProcStub, (DWORD_PTR)this);
+	DialogBoxParam(g_hInstance, MAKEINTRESOURCE(IDD_NOTIFYPREFWINDOW), hWndParent, (DLGPROC)DlgProcStub, (DWORD_PTR)this);
 
 	return true;
 }

@@ -993,7 +993,7 @@ LRESULT CALLBACK CPreferences::ServicesProc(HWND hDlg, UINT uMsg, WPARAM wParam,
 			{
 				ServicePluginEntry* pPE = tuniacApp.m_ServicePluginManager.GetPluginAtIndex(iSel);
 
-				if (pPE != NULL && pPE->ulFlags & PLUGINFLAGS_ABOUT)
+				if (pPE != NULL && pPE->ulFlags & SERVICEPLUGINFLAGS_ABOUT)
 				{
 					EnableWindow(GetDlgItem(hDlg, IDC_SERVICEPLUGIN_ABOUT), TRUE);
 				}
@@ -1002,7 +1002,7 @@ LRESULT CALLBACK CPreferences::ServicesProc(HWND hDlg, UINT uMsg, WPARAM wParam,
 					EnableWindow(GetDlgItem(hDlg, IDC_SERVICEPLUGIN_ABOUT), FALSE);
 				}
 
-				if (pPE != NULL && pPE->ulFlags & PLUGINFLAGS_CONFIG)
+				if (pPE != NULL && pPE->ulFlags & SERVICEPLUGINFLAGS_CONFIG)
 				{
 					EnableWindow(GetDlgItem(hDlg, IDC_SERVICEPLUGIN_CONFIGURE), TRUE);
 				}
@@ -1075,7 +1075,7 @@ LRESULT CALLBACK CPreferences::ServicesProc(HWND hDlg, UINT uMsg, WPARAM wParam,
 			int iSel = ListView_GetNextItem(hList, -1, LVNI_SELECTED);
 			if (iSel < 0) break;
 			ServicePluginEntry* pPE = tuniacApp.m_ServicePluginManager.GetPluginAtIndex(iSel);
-			if (pPE == NULL || !(pPE->ulFlags & PLUGINFLAGS_CONFIG)) break;
+			if (pPE == NULL || !(pPE->ulFlags & SERVICEPLUGINFLAGS_CONFIG)) break;
 
 			if (pPE->pPlugin == NULL)
 			{

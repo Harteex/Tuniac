@@ -12,16 +12,17 @@ caller and a body-encoding bug; no audio plays; nothing reaches the library.
 
 Cheap fixes that would otherwise bite during the later phases.
 
-- [ ] `PrefPage m_Pages[11]` → `[12]` in `Preferences.h` (§5.2). Currently overwrites
+- [x] `PrefPage m_Pages[11]` → `[12]` in `Preferences.h` (§5.2). Currently overwrites
       memory and hides the EQ page.
-- [ ] Version check: export/look up `GetTuniacServicePluginVersion` and compare against
+- [x] Version check: export/look up `GetTuniacServicePluginVersion` and compare against
       `ITUNIACSERVICEPLUGIN_VERSION` (§5.3). Today the check uses the *general* plugin
       constant, so an upstream bump of `ITUNIACPLUGIN_VERSION` would reject the Jellyfin
       plugin even though its interface didn't change.
-- [ ] `ServicesProc`: use `SERVICEPLUGINFLAGS_*`, not `PLUGINFLAGS_*` (§5.4).
-- [ ] Decide the registry home now, before tokens get stored: move service plugins to
-      `HKCU\Software\Tuniac\services\…` (§5.5). Moving later means migrating saved logins.
-- [ ] Store the plugin's `HINSTANCE` from `DllMain` instead of
+- [x] `ServicesProc`: use `SERVICEPLUGINFLAGS_*`, not `PLUGINFLAGS_*` (§5.4).
+- [x] Decide the registry home now, before tokens get stored: move service plugins to
+      `HKCU\Software\Tuniac\services\…` (§5.5). Moving later means migrating saved logins. Done: enable flags under
+      `services`, plugin settings under `services\<name>`.
+- [x] Store the plugin's `HINSTANCE` from `DllMain` instead of
       `GetModuleHandle(L"Jellyfin_Plugin.dll")` (§5.7).
 
 ## Phase 1 — Authentication

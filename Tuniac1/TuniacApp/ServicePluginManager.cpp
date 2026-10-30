@@ -43,16 +43,16 @@ bool			CServicePluginManager::Initialize(void)
 			HMODULE hDLL = LoadLibrary(szDll);
 			if (hDLL)
 			{
-				GetTuniacPluginVersionFunc pGTPVF = (GetTuniacPluginVersionFunc)GetProcAddress(hDLL, "GetTuniacPluginVersion");
-				if (pGTPVF == NULL)
+				GetTuniacServicePluginVersionFunc pGTSPVF = (GetTuniacServicePluginVersionFunc)GetProcAddress(hDLL, "GetTuniacServicePluginVersion");
+				if (pGTSPVF == NULL)
 				{
 					FreeLibrary(hDLL);
 					continue;
 				}
-				if (pGTPVF() != ITUNIACPLUGIN_VERSION)
+				if (pGTSPVF() != ITUNIACSERVICEPLUGIN_VERSION)
 				{
 					TCHAR szError[MAX_PATH + 100];
-					StringCchPrintf(szError, MAX_PATH + 100, TEXT("Incompatable plugin found: \\plugins\\%s\n\nThis Plugin must be updated before you can use it."), w32fd.cFileName);
+					StringCchPrintf(szError, MAX_PATH + 100, TEXT("Incompatable service plugin found: \\services\\%s\n\nThis Plugin must be updated before you can use it."), w32fd.cFileName);
 					if (tuniacApp.m_LogWindow)
 					{
 						if (tuniacApp.m_LogWindow->GetLogOn())
@@ -80,7 +80,7 @@ bool			CServicePluginManager::Initialize(void)
 					PE.ulFlags = PE.pPlugin->GetFlags();
 
 					PE.bEnabled = false;
-					if (tuniacApp.m_Preferences.PluginGetValue(TEXT("plugins"), PE.szDllFile, &lpRegType, (LPBYTE)&bRegEnabled, &iRegSize)) // FIXME??
+					if (tuniacApp.m_Preferences.PluginGetValue(TEXT("services"), PE.szDllFile, &lpRegType, (LPBYTE)&bRegEnabled, &iRegSize))
 						PE.bEnabled = bRegEnabled == TRUE;
 
 					if (!PE.bEnabled)
@@ -118,7 +118,7 @@ bool			CServicePluginManager::Shutdown(void)
 	while (m_PluginArray.GetCount())
 	{
 		bRegEnabled = m_PluginArray[0].bEnabled ? TRUE : FALSE;
-		tuniacApp.m_Preferences.PluginSetValue(TEXT("plugins"), m_PluginArray[0].szDllFile, REG_DWORD, (LPBYTE)&bRegEnabled, sizeof(int));
+		tuniacApp.m_Preferences.PluginSetValue(TEXT("services"), m_PluginArray[0].szDllFile, REG_DWORD, (LPBYTE)&bRegEnabled, sizeof(int));
 
 		EnablePlugin(0, false);
 
@@ -275,14 +275,14 @@ void			CServicePluginManager::LogMessage(LPTSTR szModuleName, LPTSTR szMessage)
 
 bool			CServicePluginManager::PreferencesGet(LPCTSTR szSubKey, LPCTSTR lpValueName, LPDWORD lpType, LPBYTE lpData, LPDWORD lpcbData)
 {
-	TCHAR szPluginsSubKey[128];
-	StringCchPrintf(szPluginsSubKey, 128, TEXT("plugins\\%s"), szSubKey);
-	return tuniacApp.m_Preferences.PluginGetValue(szPluginsSubKey, lpValueName, lpType, lpData, lpcbData);
+	TCHAR szServicesSubKey[128];
+	StringCchPrintf(szServicesSubKey, 128, TEXT("services\\%s"), szSubKey);
+	return tuniacApp.m_Preferences.PluginGetValue(szServicesSubKey, lpValueName, lpType, lpData, lpcbData);
 }
 
 bool			CServicePluginManager::PreferencesSet(LPCTSTR szSubKey, LPCTSTR lpValueName, DWORD dwType, const BYTE* lpData, DWORD cbData)
 {
-	TCHAR szPluginsSubKey[128];
-	StringCchPrintf(szPluginsSubKey, 128, TEXT("plugins\\%s"), szSubKey);
-	return tuniacApp.m_Preferences.PluginSetValue(szPluginsSubKey, lpValueName, dwType, lpData, cbData);
+	TCHAR szServicesSubKey[128];
+	StringCchPrintf(szServicesSubKey, 128, TEXT("services\\%s"), szSubKey);
+	return tuniacApp.m_Preferences.PluginSetValue(szServicesSubKey, lpValueName, dwType, lpData, cbData);
 }

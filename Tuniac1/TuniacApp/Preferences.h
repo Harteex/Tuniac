@@ -200,7 +200,7 @@ protected:
 		DLGPROC			pDialogFunc;
 		HTREEITEM		hTreeItem;
 	} PrefPage;
-	PrefPage	m_Pages[11];
+	PrefPage	m_Pages[12];
 	int			m_StartPage;
 
 	HWND		m_hTextFormatToolTip;

@@ -15,7 +15,9 @@ Cheap fixes that would otherwise bite during the later phases.
 - [ ] `PrefPage m_Pages[11]` → `[12]` in `Preferences.h` (§5.2). Currently overwrites
       memory and hides the EQ page.
 - [ ] Version check: export/look up `GetTuniacServicePluginVersion` and compare against
-      `ITUNIACSERVICEPLUGIN_VERSION` (§5.3).
+      `ITUNIACSERVICEPLUGIN_VERSION` (§5.3). Today the check uses the *general* plugin
+      constant, so an upstream bump of `ITUNIACPLUGIN_VERSION` would reject the Jellyfin
+      plugin even though its interface didn't change.
 - [ ] `ServicesProc`: use `SERVICEPLUGINFLAGS_*`, not `PLUGINFLAGS_*` (§5.4).
 - [ ] Decide the registry home now, before tokens get stored: move service plugins to
       `HKCU\Software\Tuniac\services\…` (§5.5). Moving later means migrating saved logins.
@@ -101,8 +103,10 @@ move it. (Getting a `jellyfin://` entry into the library for the test may need t
 Then do it properly through the plugin:
 
 - [ ] Add to `ITuniacServicePlugin`: `bool CanHandle(LPTSTR szSource)` and
-      `bool TranslateSource(LPTSTR szDest, size_t cchDest, LPTSTR szSource)`. Bump
-      `ITUNIACSERVICEPLUGIN_VERSION`.
+      `bool TranslateSource(LPTSTR szDest, size_t cchDest, LPTSTR szSource)`. No version
+      bump: the interface is unreleased and the only plugin is built with the app. Start
+      bumping `ITUNIACSERVICEPLUGIN_VERSION` on interface changes once plugins ship
+      separately.
 - [ ] Add `CServicePluginManager::TranslateSource(...)` that walks enabled plugins.
 - [ ] `CCoreAudio::SetSource`: call it before the decoder loop, buffer at function scope.
 - [ ] Move `TranslateSource` logic into `Jellyfin_Plugin`, using the Phase 1 settings

@@ -71,15 +71,25 @@ feels sluggish.
 
 Goal: the Configure dialog is the login/logout screen.
 
-- [ ] Replace the PopupNotify-cloned dialog (`IDD_NOTIFYPREFWINDOW`) with a proper one:
-      Server URL, Username, Password, **Log in** / **Log out** buttons, status line
-      ("Logged in as X on Y" / "Not logged in" / last error).
-- [ ] Logged-in state disables the credential fields and shows Log out; logged-out the
-      reverse. Pre-fill server URL and user name from settings.
-- [ ] Normalise the server URL (trim trailing `/`, require `http://` or `https://`).
-- [ ] Remove the commented-out PopupNotify body from `DlgProc`, rename leftovers
-      (`pPopupNotify`, dialog ID).
-- [ ] Optional: "Test connection" button hitting `/System/Info/Public` (no auth needed).
+- [x] Replace the PopupNotify-cloned dialog with `IDD_JELLYFIN_CONFIG`: Server URL,
+      Username, Password, **Test connection** / **Log in** / **Log out**, a Status box
+      ("Logged in as X on Y" / "Not logged in" plus the last result or error), Close.
+- [x] Logged in: URL and username read-only, password disabled, only Log out enabled.
+      Logged out: the reverse, with URL and username prefilled from settings.
+- [x] Opening the dialog while logged in checks the stored login (`ValidateSession`),
+      posted after the dialog is shown so it doesn't delay opening.
+- [x] "Allow untrusted HTTPS certificates (self-signed)" checkbox, saved immediately.
+- [x] Normalise the server URL (trim whitespace and trailing `/`, require `http://` or
+      `https://`) — `NormalizeServerUrl`, shared by Login and Test connection.
+- [x] Remove the commented-out PopupNotify code from `DlgProc` and the header, rename
+      leftovers. `DlgProcStub` no longer calls through a NULL pointer for messages that
+      arrive before `WM_INITDIALOG` (§5.7).
+- [x] "Test connection" hits `/System/Info/Public` (no auth) and shows the server name and
+      version; a 404 says it doesn't look like a Jellyfin server.
+
+Requests block the dialog while they run (status line shows what's happening, wait
+cursor). Verified by driving the real DLL's dialog against `demo.jellyfin.org/stable`
+and capturing it in each state. Not yet seen from inside Tuniac's Preferences.
 
 ## Phase 3 — Playback of stored `jellyfin://` links
 

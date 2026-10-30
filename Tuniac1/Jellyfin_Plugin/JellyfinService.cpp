@@ -67,6 +67,34 @@ static bool UrlEncode(LPCTSTR szSrc, LPTSTR szDest, size_t cchDest)
 	return bOK;
 }
 
+// Trim whitespace and trailing slashes (which would turn request paths into "//Users/...")
+// and require an http:// or https:// scheme with something after it
+static bool NormalizeServerUrl(LPCTSTR szSrc, LPTSTR szDest, size_t cchDest)
+{
+	szDest[0] = TEXT('\0');
+	if (szSrc == NULL)
+		return false;
+
+	while (*szSrc == TEXT(' ') || *szSrc == TEXT('\t'))
+		szSrc++;
+
+	if (FAILED(StringCchCopy(szDest, cchDest, szSrc)))
+	{
+		szDest[0] = TEXT('\0');
+		return false;
+	}
+
+	size_t iLen = _tcslen(szDest);
+	while (iLen > 0 && (szDest[iLen - 1] == TEXT('/') || szDest[iLen - 1] == TEXT(' ') || szDest[iLen - 1] == TEXT('\t')))
+		szDest[--iLen] = TEXT('\0');
+
+	if (StrCmpNI(szDest, TEXT("http://"), 7) == 0)
+		return iLen > 7;
+	if (StrCmpNI(szDest, TEXT("https://"), 8) == 0)
+		return iLen > 8;
+	return false;
+}
+
 // ServerIds become registry key names, so only accept plain ids
 static bool IsSafeId(LPCTSTR szId)
 {
@@ -146,119 +174,176 @@ bool			CJellyfinService::SetHelper(ITuniacServicePluginHelper* pHelper)
 	return true;
 }
 
-//pref dialog
+// config dialog
+
+// Posted from WM_INITDIALOG so the stored login is checked after the dialog is visible
+#define WM_JELLYFIN_VALIDATE		(WM_APP + 1)
+
 LRESULT CALLBACK	CJellyfinService::DlgProcStub(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	if (uMsg == WM_INITDIALOG)
 		SetWindowLongPtr(hDlg, GWLP_USERDATA, lParam);
 
-	CJellyfinService* pPopupNotify = (CJellyfinService*)(LONG_PTR)GetWindowLongPtr(hDlg, GWLP_USERDATA);
-	return(pPopupNotify->DlgProc(hDlg, uMsg, wParam, lParam));
+	// Some messages (WM_SETFONT) arrive before WM_INITDIALOG
+	CJellyfinService* pJellyfin = (CJellyfinService*)(LONG_PTR)GetWindowLongPtr(hDlg, GWLP_USERDATA);
+	if (pJellyfin == NULL)
+		return FALSE;
+
+	return pJellyfin->DlgProc(hDlg, uMsg, wParam, lParam);
+}
+
+void			CJellyfinService::SetDialogBusy(HWND hDlg, LPCTSTR szStatus)
+{
+	EnableWindow(GetDlgItem(hDlg, IDC_JF_TEST), FALSE);
+	EnableWindow(GetDlgItem(hDlg, IDC_JF_LOGIN), FALSE);
+	EnableWindow(GetDlgItem(hDlg, IDC_JF_LOGOUT), FALSE);
+	SetDlgItemText(hDlg, IDC_JF_STATUS, szStatus);
+
+	// Requests block this thread, so paint now and show a wait cursor until they return
+	UpdateWindow(hDlg);
+	SetCursor(LoadCursor(NULL, IDC_WAIT));
+}
+
+void			CJellyfinService::UpdateDialog(HWND hDlg, LPCTSTR szNote)
+{
+	bool bLoggedIn = IsLoggedIn();
+
+	// Read-only rather than disabled, so the URL can still be selected and copied
+	SendDlgItemMessage(hDlg, IDC_JF_SERVERURL, EM_SETREADONLY, bLoggedIn, 0);
+	SendDlgItemMessage(hDlg, IDC_JF_USERNAME, EM_SETREADONLY, bLoggedIn, 0);
+	EnableWindow(GetDlgItem(hDlg, IDC_JF_PASSWORD), !bLoggedIn);
+	EnableWindow(GetDlgItem(hDlg, IDC_JF_TEST), !bLoggedIn);
+	EnableWindow(GetDlgItem(hDlg, IDC_JF_LOGIN), !bLoggedIn);
+	EnableWindow(GetDlgItem(hDlg, IDC_JF_LOGOUT), bLoggedIn);
+
+	TCHAR szStatus[1024];
+	if (bLoggedIn)
+		StringCchPrintf(szStatus, 1024, TEXT("Logged in as %s on %s."), m_szUserName, m_szServerUrl);
+	else
+		StringCchCopy(szStatus, 1024, TEXT("Not logged in."));
+
+	if (szNote != NULL && szNote[0] != TEXT('\0'))
+	{
+		StringCchCat(szStatus, 1024, TEXT("\r\n\r\n"));
+		StringCchCat(szStatus, 1024, szNote);
+	}
+	if (m_szLastError[0] != TEXT('\0'))
+	{
+		StringCchCat(szStatus, 1024, TEXT("\r\n\r\n"));
+		StringCchCat(szStatus, 1024, m_szLastError);
+	}
+
+	SetDlgItemText(hDlg, IDC_JF_STATUS, szStatus);
 }
 
 LRESULT CALLBACK	CJellyfinService::DlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	CJellyfinService* pPopupNotify = (CJellyfinService*)(LONG_PTR)GetWindowLongPtr(hDlg, GWLP_USERDATA);
-
 	switch (uMsg)
 	{
 		case WM_INITDIALOG:
 		{
-			SetWindowLongPtr(hDlg, GWLP_USERDATA, lParam);
-			pPopupNotify = (CJellyfinService*)lParam;
+			m_szLastError[0] = TEXT('\0');
 
-			//SendDlgItemMessage(hDlg, IDC_FULLSCREENINHIBIT_CHECK, BM_SETCHECK, /*pPopupNotify->m_bAllowInhibit*/true ? BST_CHECKED : BST_UNCHECKED, 0);
+			SendDlgItemMessage(hDlg, IDC_JF_SERVERURL, EM_LIMITTEXT, 255, 0);
+			SendDlgItemMessage(hDlg, IDC_JF_USERNAME, EM_LIMITTEXT, 127, 0);
+			SendDlgItemMessage(hDlg, IDC_JF_PASSWORD, EM_LIMITTEXT, 255, 0);
 
-			//SendDlgItemMessage(hDlg, IDC_TRIGGER_MANUAL, BM_SETCHECK, /*pPopupNotify->m_bManualTrigger*/true ? BST_CHECKED : BST_UNCHECKED, 0);
-			//SendDlgItemMessage(hDlg, IDC_TRIGGER_MANUALBLIND, BM_SETCHECK, /*pPopupNotify->m_bManualBlindTrigger*/true ? BST_CHECKED : BST_UNCHECKED, 0);
-			//SendDlgItemMessage(hDlg, IDC_TRIGGER_AUTO, BM_SETCHECK, /*pPopupNotify->m_bAutoTrigger*/true ? BST_CHECKED : BST_UNCHECKED, 0);
-			//SendDlgItemMessage(hDlg, IDC_TRIGGER_AUTOBLIND, BM_SETCHECK, /*pPopupNotify->m_bAutoBlindTrigger*/true ? BST_CHECKED : BST_UNCHECKED, 0);
+			SetDlgItemText(hDlg, IDC_JF_SERVERURL, m_szServerUrl);
+			SetDlgItemText(hDlg, IDC_JF_USERNAME, m_szUserName);
+			CheckDlgButton(hDlg, IDC_JF_ALLOWINVALIDCERT, m_bAllowInvalidCertificates ? BST_CHECKED : BST_UNCHECKED);
 
+			UpdateDialog(hDlg, NULL);
 
-			//SendDlgItemMessage(hDlg, IDC_FORMATTING_NORMALFORMAT, CB_RESETCONTENT, 0, 0);
-			//SendDlgItemMessage(hDlg, IDC_FORMATTING_NORMALFORMAT, WM_SETTEXT, 0, (LPARAM)/*pPopupNotify->m_szNormalFormatString*/TEXT("fixme"));
-			//SendDlgItemMessage(hDlg, IDC_FORMATTING_NORMALFORMAT, CB_ADDSTRING, 0, (LPARAM)TEXT("@T - @A"));
-			//SendDlgItemMessage(hDlg, IDC_FORMATTING_NORMALFORMAT, CB_ADDSTRING, 0, (LPARAM)TEXT("@A - @T"));
+			if (IsLoggedIn())
+			{
+				PostMessage(hDlg, WM_JELLYFIN_VALIDATE, 0, 0);
+			}
+			else
+			{
+				// Start in the first empty field
+				int iFocus = m_szServerUrl[0] == TEXT('\0') ? IDC_JF_SERVERURL : (m_szUserName[0] == TEXT('\0') ? IDC_JF_USERNAME : IDC_JF_PASSWORD);
+				SetFocus(GetDlgItem(hDlg, iFocus));
+				return FALSE;
+			}
+		}
+		break;
 
-			//SendDlgItemMessage(hDlg, IDC_FORMATTING_STREAMFORMAT, CB_RESETCONTENT, 0, 0);
-			//SendDlgItemMessage(hDlg, IDC_FORMATTING_STREAMFORMAT, WM_SETTEXT, 0, (LPARAM)/*pPopupNotify->m_szStreamFormatString*/TEXT("fixme"));
-			//SendDlgItemMessage(hDlg, IDC_FORMATTING_STREAMFORMAT, CB_ADDSTRING, 0, (LPARAM)TEXT("@T - @A"));
-			//SendDlgItemMessage(hDlg, IDC_FORMATTING_STREAMFORMAT, CB_ADDSTRING, 0, (LPARAM)TEXT("@A - @T"));
-
-
+		case WM_JELLYFIN_VALIDATE:
+		{
+			SetDialogBusy(hDlg, TEXT("Checking login..."));
+			ValidateSession();
+			UpdateDialog(hDlg, NULL);
 		}
 		break;
 
 		case WM_COMMAND:
 			switch (LOWORD(wParam))
 			{
-				/*case IDC_FULLSCREENINHIBIT_CHECK:
+				case IDC_JF_ALLOWINVALIDCERT:
 				{
-					int State = SendDlgItemMessage(hDlg, IDC_FULLSCREENINHIBIT_CHECK, BM_GETCHECK, 0, 0);
-					pPopupNotify->m_bAllowInhibit = State == BST_UNCHECKED ? FALSE : TRUE;
-					m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("AllowInhibit"), REG_DWORD, (LPBYTE)&m_bAllowInhibit, sizeof(int));
+					SetAllowInvalidCertificates(IsDlgButtonChecked(hDlg, IDC_JF_ALLOWINVALIDCERT) == BST_CHECKED);
 				}
 				break;
 
-				case IDC_TRIGGER_MANUAL:
+				case IDC_JF_TEST:
 				{
-					int State = SendDlgItemMessage(hDlg, IDC_TRIGGER_MANUAL, BM_GETCHECK, 0, 0);
-					pPopupNotify->m_bManualTrigger = State == BST_UNCHECKED ? FALSE : TRUE;
-					m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("Manual"), REG_DWORD, (LPBYTE)&m_bManualTrigger, sizeof(int));
+					TCHAR szUrl[256];
+					TCHAR szInfo[256];
+					GetDlgItemText(hDlg, IDC_JF_SERVERURL, szUrl, 256);
+
+					SetDialogBusy(hDlg, TEXT("Connecting..."));
+					TestConnection(szUrl, szInfo, 256);
+					UpdateDialog(hDlg, szInfo);
 				}
 				break;
 
-				case IDC_TRIGGER_MANUALBLIND:
+				case IDC_JF_LOGIN:
 				{
-					int State = SendDlgItemMessage(hDlg, IDC_TRIGGER_MANUALBLIND, BM_GETCHECK, 0, 0);
-					pPopupNotify->m_bManualBlindTrigger = State == BST_UNCHECKED ? FALSE : TRUE;
-					m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("ManualBlind"), REG_DWORD, (LPBYTE)&m_bManualBlindTrigger, sizeof(int));
+					// Login is the default button, so Enter can arrive here while logged in
+					if (IsLoggedIn())
+						break;
+
+					TCHAR szUrl[256];
+					TCHAR szUsername[128];
+					TCHAR szPassword[256];
+					GetDlgItemText(hDlg, IDC_JF_SERVERURL, szUrl, 256);
+					GetDlgItemText(hDlg, IDC_JF_USERNAME, szUsername, 128);
+					GetDlgItemText(hDlg, IDC_JF_PASSWORD, szPassword, 256);
+
+					SetDialogBusy(hDlg, TEXT("Logging in..."));
+					JellyfinResult result = Login(szUrl, szUsername, szPassword);
+					SecureZeroMemory(szPassword, sizeof(szPassword));
+
+					if (result == JELLYFIN_OK)
+					{
+						// Show the stored, normalised URL
+						SetDlgItemText(hDlg, IDC_JF_SERVERURL, m_szServerUrl);
+						SetDlgItemText(hDlg, IDC_JF_PASSWORD, TEXT(""));
+					}
+
+					UpdateDialog(hDlg, NULL);
+					SendMessage(hDlg, WM_NEXTDLGCTL, (WPARAM)GetDlgItem(hDlg, IsLoggedIn() ? IDC_JF_LOGOUT : IDC_JF_PASSWORD), TRUE);
 				}
 				break;
 
-				case IDC_TRIGGER_AUTO:
+				case IDC_JF_LOGOUT:
 				{
-					int State = SendDlgItemMessage(hDlg, IDC_TRIGGER_AUTO, BM_GETCHECK, 0, 0);
-					pPopupNotify->m_bAutoTrigger = State == BST_UNCHECKED ? FALSE : TRUE;
-					m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("Auto"), REG_DWORD, (LPBYTE)&m_bAutoTrigger, sizeof(int));
+					SetDialogBusy(hDlg, TEXT("Logging out..."));
+					Logout();
+					UpdateDialog(hDlg, NULL);
+					SendMessage(hDlg, WM_NEXTDLGCTL, (WPARAM)GetDlgItem(hDlg, IDC_JF_PASSWORD), TRUE);
 				}
 				break;
-
-				case IDC_TRIGGER_AUTOBLIND:
-				{
-					int State = SendDlgItemMessage(hDlg, IDC_TRIGGER_AUTOBLIND, BM_GETCHECK, 0, 0);
-					pPopupNotify->m_bAutoBlindTrigger = State == BST_UNCHECKED ? FALSE : TRUE;
-					m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("AutoBlind"), REG_DWORD, (LPBYTE)&m_bAutoBlindTrigger, sizeof(int));
-				}
-				break;
-
-				case IDC_FORMATTING_NORMALFORMAT:
-				{
-					SendDlgItemMessage(hDlg, IDC_FORMATTING_NORMALFORMAT, WM_GETTEXT, 256, (LPARAM)m_szNormalFormatString);
-					m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("NormalFormatString"), REG_DWORD, (LPBYTE)&m_szNormalFormatString, (128 * sizeof(WCHAR)));
-				}
-				break;
-
-				case IDC_FORMATTING_STREAMFORMAT:
-				{
-					SendDlgItemMessage(hDlg, IDC_FORMATTING_STREAMFORMAT, WM_GETTEXT, 256, (LPARAM)m_szStreamFormatString);
-					m_pHelper->PreferencesSet(TEXT("PopupNotify"), TEXT("StreamFormatString"), REG_DWORD, (LPBYTE)&m_szStreamFormatString, (128 * sizeof(WCHAR)));
-				}
-				break;
-
-				case IDC_FORMATTING_FORMATSTRING_HELP:
-				{
-					MessageBox(hDlg, FORMATSTRING_HELP, TEXT("Help"), MB_OK | MB_ICONINFORMATION);
-				}
-				break;*/
 
 				case IDOK:
 				case IDCANCEL:
 				{
 					EndDialog(hDlg, wParam);
-					return TRUE;
 				}
 				break;
+
+				default:
+					return FALSE;
 			}
 			break;
 
@@ -277,7 +362,7 @@ bool			CJellyfinService::About(HWND hWndParent)
 
 bool			CJellyfinService::Configure(HWND hWndParent)
 {
-	DialogBoxParam(g_hInstance, MAKEINTRESOURCE(IDD_NOTIFYPREFWINDOW), hWndParent, (DLGPROC)DlgProcStub, (DWORD_PTR)this);
+	DialogBoxParam(g_hInstance, MAKEINTRESOURCE(IDD_JELLYFIN_CONFIG), hWndParent, (DLGPROC)DlgProcStub, (DWORD_PTR)this);
 
 	return true;
 }
@@ -462,6 +547,64 @@ JellyfinResult	CJellyfinService::ResultFromResponse(HttpResponse& response, LPCT
 
 // session
 
+JellyfinResult	CJellyfinService::TestConnection(LPCTSTR szServerUrl, LPTSTR szInfo, size_t cchInfo)
+{
+	m_szLastError[0] = TEXT('\0');
+	szInfo[0] = TEXT('\0');
+
+	TCHAR szUrl[256];
+	if (!NormalizeServerUrl(szServerUrl, szUrl, 256))
+	{
+		SetError(TEXT("The server URL must start with http:// or https://."));
+		return JELLYFIN_ERROR_INVALIDARGS;
+	}
+
+	TCHAR szRequestUrl[512];
+	TCHAR szHeaders[1024];
+	if (!BuildUrl(szRequestUrl, 512, szUrl, TEXT("/System/Info/Public")) || !BuildAuthHeader(szHeaders, 1024, NULL))
+	{
+		SetError(TEXT("Connection test failed: could not build the request."));
+		return JELLYFIN_ERROR_INVALIDARGS;
+	}
+
+	CHttpService httpService;
+	httpService.SetAllowInvalidCertificates(m_bAllowInvalidCertificates);
+	HttpResponse response = httpService.Get(szRequestUrl, szHeaders);
+
+	JellyfinResult result = ResultFromResponse(response, TEXT("Connection test"));
+
+	// Any Jellyfin server has this endpoint, so a 404 means something else is answering
+	if (result == JELLYFIN_ERROR_RESPONSE && response.statusCode == 404)
+		SetError(TEXT("The server answered, but it doesn't look like a Jellyfin server (HTTP 404). Check the URL, including any path such as /jellyfin."));
+
+	if (result == JELLYFIN_OK)
+	{
+		TCHAR szServerName[128];
+		TCHAR szVersion[64];
+
+		rapidjson::Document responseDoc;
+		if (response.pContent != NULL)
+			responseDoc.Parse(response.pContent);
+
+		if (response.pContent != NULL && !responseDoc.HasParseError() && responseDoc.IsObject() &&
+			GetJsonString(responseDoc, "ServerName", szServerName, 128) &&
+			GetJsonString(responseDoc, "Version", szVersion, 64))
+		{
+			StringCchPrintf(szInfo, cchInfo, TEXT("Found Jellyfin server \"%s\" (version %s)."), szServerName, szVersion);
+		}
+		else
+		{
+			SetError(TEXT("The server answered, but it doesn't look like a Jellyfin server."));
+			result = JELLYFIN_ERROR_RESPONSE;
+		}
+	}
+
+	if (response.pContent != NULL)
+		delete[] response.pContent;
+
+	return result;
+}
+
 JellyfinResult	CJellyfinService::Login(LPCTSTR szServerUrl, LPCTSTR szUsername, LPCTSTR szPassword)
 {
 	m_szLastError[0] = TEXT('\0');
@@ -472,18 +615,8 @@ JellyfinResult	CJellyfinService::Login(LPCTSTR szServerUrl, LPCTSTR szUsername, 
 		return JELLYFIN_ERROR_INVALIDARGS;
 	}
 
-	// A trailing slash would turn every request path into "//Users/..."
 	TCHAR szUrl[256];
-	if (FAILED(StringCchCopy(szUrl, 256, szServerUrl)))
-	{
-		SetError(TEXT("Login failed: the server URL is too long."));
-		return JELLYFIN_ERROR_INVALIDARGS;
-	}
-	size_t iLen = _tcslen(szUrl);
-	while (iLen > 0 && szUrl[iLen - 1] == TEXT('/'))
-		szUrl[--iLen] = TEXT('\0');
-
-	if (StrCmpNI(szUrl, TEXT("http://"), 7) != 0 && StrCmpNI(szUrl, TEXT("https://"), 8) != 0)
+	if (!NormalizeServerUrl(szServerUrl, szUrl, 256))
 	{
 		SetError(TEXT("Login failed: the server URL must start with http:// or https://."));
 		return JELLYFIN_ERROR_INVALIDARGS;

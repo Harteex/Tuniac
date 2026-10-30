@@ -25,23 +25,6 @@ class CJellyfinService :
 {
 
 protected:
-	/*HANDLE					m_hThread;
-	HWND					m_hWnd;
-
-	ATOM					m_aHotkeyShow;
-
-	APPBARDATA				m_abd;
-
-	unsigned long			m_ShowTimeMS;
-	unsigned long			m_FadeTimeMS;
-	BYTE					m_Alpha;
-
-	RECT					m_rcHit;
-
-	HFONT					m_SmallFont;
-	HFONT					m_SmallFontB;
-	HFONT					m_SmallFontU;*/
-
 	ITuniacServicePluginHelper* m_pHelper;
 
 	TCHAR					m_szDeviceId[64];
@@ -70,28 +53,10 @@ protected:
 	JellyfinResult			ResultFromResponse(HttpResponse& response, LPCTSTR szAction);
 	void					SetError(LPCTSTR szFormat, ...);
 
-	/*BOOL					m_bAllowInhibit;
-	BOOL					m_bManualTrigger;
-	BOOL					m_bManualBlindTrigger;
-	BOOL					m_bAutoTrigger;
-	BOOL					m_bAutoBlindTrigger;
-
-	TCHAR					m_szNormalFormatString[128];
-	TCHAR					m_szStreamFormatString[128];
-
-	bool					m_bInhibit;*/
-
-	//static LRESULT CALLBACK	WndProcStub(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-	//LRESULT CALLBACK		WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-
 	static LRESULT CALLBACK	DlgProcStub(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK		DlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
-
-	//static unsigned long __stdcall	ThreadStub(void* in);
-	//unsigned long			ThreadProc(void);
-
-	//void					RePaint(HWND hWnd);
-	//void					ResetWindow();
+	void					UpdateDialog(HWND hDlg, LPCTSTR szNote);
+	void					SetDialogBusy(HWND hDlg, LPCTSTR szStatus);
 
 public:
 	CJellyfinService();
@@ -104,15 +69,16 @@ public:
 
 	bool				SetHelper(ITuniacServicePluginHelper* pHelper);
 
-	//HANDLE				CreateThread(LPDWORD lpThreadId);
-	//HWND				GetPluginWindow(void);
-
 	bool				About(HWND hWndParent);
 	bool				Configure(HWND hWndParent);
 
 	// Authenticate against a Jellyfin server (e.g. "https://jellyfin.example.com") and make it the
 	// active server. The token, user and server URL are persisted per ServerId; the password is not.
 	JellyfinResult		Login(LPCTSTR szServerUrl, LPCTSTR szUsername, LPCTSTR szPassword);
+
+	// Check that a Jellyfin server answers at szServerUrl, without logging in. On success szInfo
+	// describes the server.
+	JellyfinResult		TestConnection(LPCTSTR szServerUrl, LPTSTR szInfo, size_t cchInfo);
 
 	// Check the stored token against the active server. A rejected token logs us out locally;
 	// a network failure leaves the token alone.

@@ -47,6 +47,10 @@ public:
 	CHttpService();
 	~CHttpService();
 
+	// Accept HTTPS certificates that would otherwise be rejected (self-signed, wrong host name,
+	// expired). Off by default; only for servers the user has explicitly chosen to trust.
+	void SetAllowInvalidCertificates(bool bAllow);
+
 	// Perform HTTP GET request
 	// szUrl: Full URL (e.g., "https://example.com/api/endpoint")
 	// szHeaders: Optional additional headers (NULL if none), format: "Header1: Value1\r\nHeader2: Value2\r\n"
@@ -55,19 +59,21 @@ public:
 
 	// Perform HTTP POST request
 	// szUrl: Full URL (e.g., "https://example.com/api/endpoint")
-	// szData: POST data to send (NULL if none)
+	// pBody: Raw request body sent as-is, e.g. UTF-8 JSON (NULL if none)
+	// cbBody: Size of pBody in bytes
 	// szHeaders: Optional additional headers (NULL if none), format: "Header1: Value1\r\nHeader2: Value2\r\n"
 	// Returns: HttpResponse structure with response data
-	HttpResponse Post(LPTSTR szUrl, LPTSTR szData = NULL, LPTSTR szHeaders = NULL);
+	HttpResponse Post(LPTSTR szUrl, const char* pBody = NULL, DWORD cbBody = 0, LPTSTR szHeaders = NULL);
 
 private:
 	HINTERNET m_hSession;	// WinINet session handle
+	bool m_bAllowInvalidCertificates;
 
 	// Parse URL into components
 	bool ParseUrl(LPTSTR szUrl, ParsedUrl& parsedUrl);
 
 	// Internal method to perform HTTP request
-	HttpResponse PerformRequest(LPTSTR szMethod, ParsedUrl& parsedUrl, LPTSTR szData, LPTSTR szHeaders);
+	HttpResponse PerformRequest(LPTSTR szMethod, ParsedUrl& parsedUrl, const char* pBody, DWORD cbBody, LPTSTR szHeaders);
 };
 
 

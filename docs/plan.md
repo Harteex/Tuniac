@@ -30,33 +30,42 @@ Cheap fixes that would otherwise bite during the later phases.
 Goal: given server URL + username + password, end up with a persisted token and user
 id, and be able to tell on startup whether we are still logged in.
 
-- [ ] **Fix the POST body** (§5.1): `CHttpService::Post` takes `const char*` + byte
+- [x] **Fix the POST body** (§5.1): `CHttpService::Post` takes `const char*` + byte
       length; `Login()` sends RapidJSON's UTF-8 buffer directly, no UTF-16 round trip.
-- [ ] **Send the client authorization header on every request, including login.**
-      Jellyfin wants `Authorization: MediaBrowser Client="Tuniac", Device="…",
-      DeviceId="…", Version="…"` (plus `, Token="…"` once logged in). Current `Login()`
-      sends only `Content-Type`; newer servers reject that. Build it in one helper.
-- [ ] **Stable DeviceId**: generate a GUID once and store it. The prototype used the
-      computer name; Jellyfin ties sessions to DeviceId, so it must be unique and stable.
-- [ ] **Parse and keep more than the token**: `AccessToken`, `User.Id`, `User.Name`,
-      `ServerId`. User id is needed for most item queries later.
-- [ ] **Persist** server URL, user id, user name, token via `PreferencesSet`,
-      **keyed by `ServerId`** (e.g. `…\services\Jellyfin\Servers\<serverid>\…`), since
-      links carry the server id (see URL format below). One login at a time in the UI is
-      fine to start with, but the storage must not assume a single server.
-      Never store the password.
-- [ ] **Validate on startup**: `GET /Users/Me` (or `/System/Info`) with the token; on
-      401 mark as logged out rather than failing silently at playback time.
-- [ ] **Logout**: `POST /Sessions/Logout`, then clear token/user id locally (clear
-      locally even if the server call fails).
-- [ ] **Error reporting**: return something better than `bool` from `Login()` —
-      at least distinguish "can't reach server" / "bad credentials" / "unexpected reply",
-      and log via `LogMessage`.
-- [ ] **TLS**: drop the unconditional ignore-cert flags (§5.6); add an opt-in
-      "allow self-signed certificate" setting if needed for home servers.
+- [x] **Send the client authorization header on every request, including login.**
+      `CJellyfinService::BuildAuthHeader` — `Authorization: MediaBrowser Client="Tuniac",
+      Device="…", DeviceId="…", Version="…"[, Token="…"]`, device name percent-encoded.
+- [x] **Stable DeviceId**: GUID generated once, stored as `services\Jellyfin\DeviceId`.
+- [x] **Parse and keep more than the token**: `AccessToken`, `User.Id`, `User.Name`,
+      `ServerId`.
+- [x] **Persist** `Url`, `UserId`, `UserName`, `Token` under
+      `services\Jellyfin\Servers\<ServerId>`, plus `services\Jellyfin\ActiveServer`.
+      Password is never stored. Logging in to another server keeps the first one's token.
+- [x] **Validate**: `ValidateSession()` does `GET /Users/Me`; 401/403 clears the token
+      locally, a network failure leaves it alone. Changed from "on startup" to **on
+      demand** so an unreachable server can't stall Tuniac's startup — call it when the
+      Configure dialog opens (Phase 2) and before playback (Phase 3).
+- [x] **Logout**: `POST /Sessions/Logout`, then clear the token locally regardless.
+      Server URL and user name are kept to prefill the dialog.
+- [x] **Error reporting**: `JellyfinResult` (`INVALIDARGS` / `CONNECT` / `CERTIFICATE` /
+      `UNAUTHORIZED` / `RESPONSE`), a readable `GetLastErrorText()` for the UI, and every
+      failure logged via `LogMessage`.
+- [x] **TLS**: ignore-cert flags removed. Opt-in `AllowInvalidCertificates` setting
+      (`SetAllowInvalidCertificates()`), which also accepts unknown CAs — the old flags never
+      did, so self-signed servers never actually worked. One setting for the plugin for now,
+      not per server; Phase 2 needs a checkbox for it.
+- [x] Requests have timeouts (10 s connect, 30 s send/receive), since they run on the UI
+      thread.
+- [x] Host fix: `CPreferences::PluginGetValue` now returns false when the value is
+      missing (§5.7), so "is there a stored token?" can be answered.
 
-Open: does login run on the UI thread with a wait cursor (simplest; WinINet calls are
-blocking) or on a worker thread? Suggest UI thread + timeout for now.
+Tested with a throwaway console harness against `demo.jellyfin.org/stable`: login (with a
+trailing slash in the URL), wrong password, validate, logout, and validate with a token
+the server had revoked. Also: missing URL scheme and unreachable host. The certificate
+path is untested.
+
+Decided: login runs on the UI thread, bounded by the request timeouts. Revisit if it
+feels sluggish.
 
 ## Phase 2 — Plugin configuration UI
 

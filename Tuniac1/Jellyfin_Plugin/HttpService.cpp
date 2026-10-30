@@ -4,7 +4,8 @@
 #include <tchar.h>
 
 CHttpService::CHttpService() :
-	m_hSession(NULL)
+	m_hSession(NULL),
+	m_bAllowInvalidCertificates(false)
 {
 	// Initialize WinINet session
 	m_hSession = InternetOpen(
@@ -14,6 +15,21 @@ CHttpService::CHttpService() :
 		NULL,
 		0
 	);
+
+	// Requests run on the UI thread, so don't let an unreachable server hang it for long
+	if (m_hSession != NULL)
+	{
+		DWORD dwConnectTimeout = 10000;
+		DWORD dwReceiveTimeout = 30000;
+		InternetSetOption(m_hSession, INTERNET_OPTION_CONNECT_TIMEOUT, &dwConnectTimeout, sizeof(DWORD));
+		InternetSetOption(m_hSession, INTERNET_OPTION_SEND_TIMEOUT, &dwReceiveTimeout, sizeof(DWORD));
+		InternetSetOption(m_hSession, INTERNET_OPTION_RECEIVE_TIMEOUT, &dwReceiveTimeout, sizeof(DWORD));
+	}
+}
+
+void CHttpService::SetAllowInvalidCertificates(bool bAllow)
+{
+	m_bAllowInvalidCertificates = bAllow;
 }
 
 CHttpService::~CHttpService()
@@ -136,7 +152,7 @@ bool CHttpService::ParseUrl(LPTSTR szUrl, ParsedUrl& parsedUrl)
 	return true;
 }
 
-HttpResponse CHttpService::PerformRequest(LPTSTR szMethod, ParsedUrl& parsedUrl, LPTSTR szData, LPTSTR szHeaders)
+HttpResponse CHttpService::PerformRequest(LPTSTR szMethod, ParsedUrl& parsedUrl, const char* pBody, DWORD cbBody, LPTSTR szHeaders)
 {
 	HttpResponse response;
 
@@ -178,8 +194,6 @@ HttpResponse CHttpService::PerformRequest(LPTSTR szMethod, ParsedUrl& parsedUrl,
 	if (parsedUrl.bUseSsl)
 	{
 		dwFlags |= INTERNET_FLAG_SECURE;
-		// Allow self-signed certificates (may need to adjust for production)
-		dwFlags |= INTERNET_FLAG_IGNORE_CERT_DATE_INVALID | INTERNET_FLAG_IGNORE_CERT_CN_INVALID;
 	}
 
 	// Open HTTP request
@@ -201,6 +215,18 @@ HttpResponse CHttpService::PerformRequest(LPTSTR szMethod, ParsedUrl& parsedUrl,
 		return response;
 	}
 
+	// Self-signed certificates need SECURITY_FLAG_IGNORE_UNKNOWN_CA, which can only be set on the
+	// request handle, not passed to HttpOpenRequest
+	if (parsedUrl.bUseSsl && m_bAllowInvalidCertificates)
+	{
+		DWORD dwSecFlags = 0;
+		DWORD dwSecFlagsSize = sizeof(dwSecFlags);
+		InternetQueryOption(hRequest, INTERNET_OPTION_SECURITY_FLAGS, &dwSecFlags, &dwSecFlagsSize);
+		dwSecFlags |= SECURITY_FLAG_IGNORE_UNKNOWN_CA | SECURITY_FLAG_IGNORE_CERT_DATE_INVALID |
+			SECURITY_FLAG_IGNORE_CERT_CN_INVALID | SECURITY_FLAG_IGNORE_REVOCATION;
+		InternetSetOption(hRequest, INTERNET_OPTION_SECURITY_FLAGS, &dwSecFlags, sizeof(dwSecFlags));
+	}
+
 	// Add custom headers if provided
 	if (szHeaders != NULL && szHeaders[0] != TEXT('\0'))
 	{
@@ -217,8 +243,8 @@ HttpResponse CHttpService::PerformRequest(LPTSTR szMethod, ParsedUrl& parsedUrl,
 		hRequest,
 		NULL,
 		0,
-		szData,
-		(szData != NULL) ? (DWORD)(_tcslen(szData) * sizeof(TCHAR)) : 0
+		(LPVOID)pBody,
+		(pBody != NULL) ? cbBody : 0
 	);
 
 	if (!bSendResult)
@@ -344,10 +370,10 @@ HttpResponse CHttpService::Get(LPTSTR szUrl, LPTSTR szHeaders)
 		return response;
 	}
 
-	return PerformRequest(TEXT("GET"), parsedUrl, NULL, szHeaders);
+	return PerformRequest(TEXT("GET"), parsedUrl, NULL, 0, szHeaders);
 }
 
-HttpResponse CHttpService::Post(LPTSTR szUrl, LPTSTR szData, LPTSTR szHeaders)
+HttpResponse CHttpService::Post(LPTSTR szUrl, const char* pBody, DWORD cbBody, LPTSTR szHeaders)
 {
 	HttpResponse response;
 
@@ -358,6 +384,6 @@ HttpResponse CHttpService::Post(LPTSTR szUrl, LPTSTR szData, LPTSTR szHeaders)
 		return response;
 	}
 
-	return PerformRequest(TEXT("POST"), parsedUrl, szData, szHeaders);
+	return PerformRequest(TEXT("POST"), parsedUrl, pBody, cbBody, szHeaders);
 }
 

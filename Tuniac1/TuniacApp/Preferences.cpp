@@ -3366,15 +3366,15 @@ bool	CPreferences::PluginGetValue(LPCTSTR szSubKey, LPCTSTR lpValueName, LPDWORD
 						KEY_QUERY_VALUE,
 						&hTuniacPrefKey) == ERROR_SUCCESS)
 	{
-		RegQueryValueEx(	hTuniacPrefKey,
-							lpValueName,
-							NULL,
-							lpType,
-							lpData,
-							lpcbData);
+		LONG lResult = RegQueryValueEx(	hTuniacPrefKey,
+										lpValueName,
+										NULL,
+										lpType,
+										lpData,
+										lpcbData);
 
 		RegCloseKey(hTuniacPrefKey);
-		return true;
+		return lResult == ERROR_SUCCESS;
 	}
 
 	return false;

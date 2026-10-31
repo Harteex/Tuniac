@@ -27,7 +27,6 @@
 
 #include "IAudioSource.h"
 #include "AudioStream.h"
-#include "JellyfinService.h"
 
 #include "IPlaylist.h"
 
@@ -58,8 +57,6 @@ protected:
 
 	IXAudio2				*			m_pXAudio;
 	IXAudio2MasteringVoice	*			m_pMasteringVoice;
-
-	CJellyfinService		*			m_JellyfinService;
 
 	unsigned long						m_ulCrossfadeTimeMS;
 	unsigned long						m_BufferSizeMS;

@@ -109,19 +109,21 @@ Working plan and checklist: **[docs/plan.md](docs/plan.md)**.
 Goal: stream from a Jellyfin server through a **new, general plugin type** for streaming
 services, rather than as a hardcoded special case.
 
-Status in one line: the plugin *type* exists end to end — interface, loader, preferences
-page, and a real DLL that loads and shows About/Configure — and a Jellyfin login over
-HTTP is written, but nothing is wired to playback yet, so the branch plays no Jellyfin
-audio right now. The earlier hardcoded prototype that *did* play audio still sits in
-`TuniacApp/JellyfinService.cpp`, with its hook in `CCoreAudio::SetSource` commented out.
+Status: the plugin type works end to end. The Jellyfin plugin logs in and out from its
+Configure dialog, and library entries holding `jellyfin://<serverid>/<itemid>` links play:
+`CCoreAudio::SetSource` asks `CServicePluginManager` to resolve them into an authenticated
+stream URL for BASS. What's missing is a way to get songs into the library other than
+typing links (File → Import Stream…) — Phase 4 in [docs/plan.md](docs/plan.md).
 
-Full analysis — file-by-file state, known bugs, remaining work:
-**[docs/service-plugins.md](docs/service-plugins.md)**.
+[docs/plan.md](docs/plan.md) is the live checklist. [docs/service-plugins.md](docs/service-plugins.md)
+is the original analysis, a snapshot as of `64b8b8c` — useful background, but several of its
+"known issues" have since been fixed.
 
-Two things to know before touching this branch:
+Things to know before touching this branch:
 
-1. `CPreferences::m_Pages` is declared `PrefPage m_Pages[11]` but the constructor now
-   fills indices 0–11 (12 pages). Fix the array size before adding another page — see
-   "Known issues" in docs/service-plugins.md.
-2. Service plugins share the `plugins` registry namespace with ordinary plugins; the code
-   carries a `FIXME??` about it.
+1. Service plugins keep settings under `HKCU\Software\Tuniac\services\…` (enable flags keyed
+   by DLL name, plugin settings under `services\<name>`), separate from ordinary plugins.
+2. A service link's resolved string (URL + auth header) must outlive the decoder that
+   opened it; `CAudioStream` owns it. Don't pass a stack buffer to a decoder.
+3. Line endings are mixed per file (newer files LF, older ones CRLF). Keep each file's
+   existing endings so diffs stay small.

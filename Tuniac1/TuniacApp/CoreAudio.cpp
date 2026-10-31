@@ -62,8 +62,7 @@ CCoreAudio::CCoreAudio(void) :
 	m_pMasteringVoice(NULL),
 	m_bReplayGainEnabled(true),
 	m_bUseAlbumGain(false),
-	fMixBuffer(NULL),
-	m_JellyfinService(NULL)
+	fMixBuffer(NULL)
 {
 }
 
@@ -180,10 +179,6 @@ bool			CCoreAudio::Startup()
 		FindClose(hFind); 
 	}
 
-	m_JellyfinService = new CJellyfinService();
-	//m_JellyfinService->Login(L"https://test.com", L"asdf", L"pass");
-	//m_JellyfinService->DoHttpRequest2();
-
 	return true;
 }
 
@@ -223,12 +218,6 @@ bool			CCoreAudio::Shutdown(void)
 		_aligned_free(fMixBuffer);
 	}
 
-	if (m_JellyfinService)
-	{
-		delete m_JellyfinService;
-		m_JellyfinService = NULL;
-	}
-
 	return true;
 }
 
@@ -250,21 +239,26 @@ bool			CCoreAudio::SetSource(LPTSTR szSource, float *fReplayGainAlbum, float *fR
 		CheckOldStreams();
 	}
 
-	// TODO We should check an array of services here
-	// Also move these services to a new type of plugin
-	/*if (m_JellyfinService->CanHandle(szSource))
+	// Service links (e.g. jellyfin://) are resolved into something a decoder can open. Decoders
+	// keep the string they're given, so the resolved copy is handed to the stream and freed with
+	// it. The stream itself still gets szSource, so play counts etc. reach the library entry.
+	LPTSTR szDecoderSource = szSource;
+	LPTSTR szResolvedSource = NULL;
+	if(tuniacApp.m_ServicePluginManager.CanHandle(szSource))
 	{
-		TCHAR szNewSource[512];
-		if (m_JellyfinService->TranslateSource(szNewSource, 512, szSource))
+		szResolvedSource = new TCHAR[SERVICE_SOURCE_MAX];
+		if(!tuniacApp.m_ServicePluginManager.TranslateSource(szResolvedSource, SERVICE_SOURCE_MAX, szSource))
 		{
-			szSource = szNewSource;
+			delete[] szResolvedSource;
+			tuniacApp.CoreAudioMessage(NOTIFY_COREAUDIO_PLAYBACKFAILED, NULL);
+			return false;
 		}
-	}*/
-
+		szDecoderSource = szResolvedSource;
+	}
 
 	for(unsigned long x=0; x<m_AudioSources.GetCount(); x++)
 	{
-		if(m_AudioSources[x]->CanHandle(szSource))
+		if(m_AudioSources[x]->CanHandle(szDecoderSource))
 		{
 			CAudioStream * pStream;
 			CAudioOutput * pOutput;
@@ -275,7 +269,7 @@ bool			CCoreAudio::SetSource(LPTSTR szSource, float *fReplayGainAlbum, float *fR
 			{
 				CTuniacMemoryFileIO * pIO = new CTuniacMemoryFileIO();
 
-				if(pIO->Open(szSource))
+				if(pIO->Open(szDecoderSource))
 					pFileIO = pIO;
 
 
@@ -287,7 +281,7 @@ bool			CCoreAudio::SetSource(LPTSTR szSource, float *fReplayGainAlbum, float *fR
 			{
 				CTuniacStandardFileIO * pIO = new CTuniacStandardFileIO();
 
-				if(pIO->Open(szSource))
+				if(pIO->Open(szDecoderSource))
 					pFileIO = pIO;
 
 
@@ -299,7 +293,7 @@ bool			CCoreAudio::SetSource(LPTSTR szSource, float *fReplayGainAlbum, float *fR
 			{
 				CTuniacHTTPFileIO * pIO = new CTuniacHTTPFileIO();
 
-				if(pIO->Open(szSource))
+				if(pIO->Open(szDecoderSource))
 					pFileIO = pIO;
 
 
@@ -307,7 +301,7 @@ bool			CCoreAudio::SetSource(LPTSTR szSource, float *fReplayGainAlbum, float *fR
 					break;
 			}
 
-			IAudioSource * pSource = m_AudioSources[x]->CreateAudioSource(szSource, pFileIO);
+			IAudioSource * pSource = m_AudioSources[x]->CreateAudioSource(szDecoderSource, pFileIO);
 			if(pSource)
 			{
 				pStream = new CAudioStream();
@@ -346,6 +340,7 @@ bool			CCoreAudio::SetSource(LPTSTR szSource, float *fReplayGainAlbum, float *fR
 					pStream->UseAlbumGain(m_bUseAlbumGain);
 					pStream->SetReplayGainScale(*fReplayGainTrack, *fReplayGainAlbum);
 
+					pStream->SetResolvedSource(szResolvedSource);
 					m_Streams.AddTail(pStream);
 
 					if(bShoudStart)
@@ -361,6 +356,13 @@ bool			CCoreAudio::SetSource(LPTSTR szSource, float *fReplayGainAlbum, float *fR
 			}
 		}
 	}
+	// Any decoder that used the resolved source has been destroyed by now
+	if(szResolvedSource)
+	{
+		delete[] szResolvedSource;
+		tuniacApp.m_ServicePluginManager.SourceFailed(szSource);
+	}
+
 	tuniacApp.CoreAudioMessage(NOTIFY_COREAUDIO_PLAYBACKFAILED, NULL);
 	return false;
 }

@@ -90,6 +90,7 @@ public:
 	IAudioSource		*				m_pSource;
 	CAudioOutput		*				m_Output;
 	LPTSTR								szURL;
+	LPTSTR								m_szResolvedSource;	// owned; what the decoder opened if szURL is a service link
 
 	CAudioPacketizer					m_Packetizer;
 
@@ -138,6 +139,9 @@ public:
 	CAudioStream();
 
 	bool Initialize(IAudioSource * pSource, CAudioOutput * pOutput, LPTSTR szSource);
+
+	// Takes ownership of a new[]'d string the decoder still refers to; freed after the decoder
+	void SetResolvedSource(LPTSTR szResolvedSource) { m_szResolvedSource = szResolvedSource; }
 
 	void Destroy();
 

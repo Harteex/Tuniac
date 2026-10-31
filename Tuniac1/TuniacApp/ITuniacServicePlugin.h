@@ -18,6 +18,9 @@ public:
 #define SERVICEPLUGINFLAGS_ABOUT				0x00000001
 #define SERVICEPLUGINFLAGS_CONFIG				0x00000002
 
+// Size in characters of the buffer TranslateSource fills
+#define SERVICE_SOURCE_MAX						2048
+
 
 class ITuniacServicePlugin
 {
@@ -34,6 +37,17 @@ public:
 
 	virtual bool			About(HWND hWndParent) = 0;
 	virtual bool			Configure(HWND hWndParent) = 0;
+
+	// Library entries can hold service links (e.g. jellyfin://<server>/<item>). Just before playback
+	// the host asks each service whether it owns the link and, if so, to resolve it into something
+	// a decoder can open. Return false from TranslateSource if it can't be played right now
+	// (e.g. not logged in); the host then treats it as a failed track.
+	virtual bool			CanHandle(LPCTSTR szSource) = 0;
+	virtual bool			TranslateSource(LPTSTR szDest, size_t cchDest, LPCTSTR szSource) = 0;
+
+	// No decoder could open what TranslateSource returned. Find out why if possible and log it;
+	// decoders usually can't say more than "failed".
+	virtual void			SourceFailed(LPCTSTR szSource) = 0;
 };
 
 typedef ITuniacServicePlugin* (*CreateTuniacServicePluginFunc)(void);

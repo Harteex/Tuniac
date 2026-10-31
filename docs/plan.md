@@ -93,54 +93,69 @@ and capturing it in each state. Not yet seen from inside Tuniac's Preferences.
 
 ## Phase 3 — Playback of stored `jellyfin://` links
 
-**Does it work already? No.** The only code that ever played Jellyfin audio is the
-prototype `CJellyfinService` in `TuniacApp/`, and its call in `CCoreAudio::SetSource`
-(`CoreAudio.cpp:253`) is commented out. It also has a latent bug if simply uncommented:
-`szNewSource` is declared inside the `if` block, so `szSource` dangles once the block
-exits.
-
 **URL format (decided):** `jellyfin://<serverid>/<itemid>`. Multiple servers are allowed;
-the plugin looks up host and token by server id when translating.
+the plugin looks up URL and token by server id, so links to any server we've logged in to
+keep playing, not only the active one.
 
-**`jellyfin://` is a Tuniac-internal scheme, not something Windows knows about.** Don't
-rely on `PathIsURL` or other shell URL handling for it. The core uses `PathIsURL` to
-decide "stream vs. file" in several places (`CMediaLibrary::AddItem`, `BasePlaylist.cpp`,
-`LibraryPlaylist.cpp`, `ImportExportManager.cpp`, and `bass_Plugin`'s `CanHandle`), so:
+**Correction to the earlier note:** `PathIsURL` returns TRUE for *any* `scheme://…` string,
+including `jellyfin://` (checked). So the core already treats these links as stream URLs:
+`AddItem` stores them as `ENTRY_KIND_URL` entries (File → Import Stream… works), tag
+reading skips them, "delete file from disk" skips them. No host-side check was needed for
+adding. Side effects to remember for Phase 4: entries get `LENGTH_STREAM`, and the
+"Automatically skip streams" option skips them in shuffle.
 
-- [ ] Add a host-side check, e.g. `CServicePluginManager::CanHandle(szSource)`, and use it
-      next to `PathIsURL` wherever service links must be treated as streams (at minimum
-      `AddItem`, so they become `ENTRY_KIND_URL` entries instead of failing as files).
-- [ ] Audit the `PathIsURL` call sites in `BasePlaylist.cpp` / `LibraryPlaylist.cpp` and
-      decide per site whether service links should count as URLs.
-- [ ] Never hand a raw `jellyfin://` string to a decoder — it must be translated first.
+- [x] `ITuniacServicePlugin` gained `CanHandle(LPCTSTR)` and
+      `TranslateSource(LPTSTR, size_t, LPCTSTR)`; `SERVICE_SOURCE_MAX` (2048) is the buffer
+      size. No version bump (unreleased interface, plugin built with the app).
+- [x] `CServicePluginManager::CanHandle` / `TranslateSource` walk the enabled plugins.
+- [x] `CCoreAudio::SetSource` resolves service links before the decoder loop. If a service
+      owns the link but can't resolve it, playback fails straight away (the app logs it,
+      marks the entry unavailable and moves on).
+- [x] **Lifetime fix (the prototype's bug, and a second one):** decoders keep the string
+      they're given — BASS passes it to `UpdateMetaData` and registers it as `MetaSync` user
+      data — so a stack buffer would dangle. The resolved string is `new[]`'d and owned by
+      the `CAudioStream` (`SetResolvedSource`), freed in its destructor after the decoder is
+      destroyed. The stream itself still gets the original link, so the play count
+      (`NOTIFY_COREAUDIO_PLAYEDPOINTREACHED`) reaches the library entry, and the "Set source"
+      log line doesn't show the token.
+- [x] Jellyfin plugin: `jellyfin://<server>/<item>` →
+      `<url>/Audio/<item>/stream?static=true` + `\r\n` + the `Authorization` header with
+      the token. Clear log messages for malformed links and "not logged in to that server".
+- [x] `bass_Plugin`: URL buffer 512 → 4096 bytes (a resolved link is ~260 chars), and fail
+      cleanly instead of passing a truncated URL.
+- [x] Deleted the prototype `TuniacApp/JellyfinService.{h,cpp}`, its use in `CCoreAudio`,
+      and `Wininet.lib` from TuniacApp's Debug|x64 link line (nothing else used it).
+- [x] Decided `static=true` (original file). Fine while BASS can decode what the server
+      stores; `/Audio/<id>/universal` (server transcodes) is the fallback if that bites.
 
-Quick check worth doing first: temporarily re-enable the hook (with the buffer hoisted
-to function scope), put Host/Token in the registry, and confirm a translated stream URL
-plays through BASS. That tells us the "URL + `\r\n` + headers" path still works before we
-move it. (Getting a `jellyfin://` entry into the library for the test may need the
-`AddItem` change above, or a hand-made entry.)
+Tested outside Tuniac with the real code: the plugin's `TranslateSource` plus the real
+`bass_Plugin.dll` through `IAudioSourceSupplier`, as `SetSource` calls it, against
+`demo.jellyfin.org/stable`. An MP3 and a FLAC track both opened (correct length, rate,
+channels) and decoded 5 s of real audio. Not-logged-in and malformed links fail with the
+expected messages.
 
-Then do it properly through the plugin:
+Known limitations, deliberately left for later:
 
-- [ ] Add to `ITuniacServicePlugin`: `bool CanHandle(LPTSTR szSource)` and
-      `bool TranslateSource(LPTSTR szDest, size_t cchDest, LPTSTR szSource)`. No version
-      bump: the interface is unreleased and the only plugin is built with the app. Start
-      bumping `ITUNIACSERVICEPLUGIN_VERSION` on interface changes once plugins ship
-      separately.
-- [ ] Add `CServicePluginManager::TranslateSource(...)` that walks enabled plugins.
-- [ ] `CCoreAudio::SetSource`: call it before the decoder loop, buffer at function scope.
-- [ ] Move `TranslateSource` logic into `Jellyfin_Plugin`, using the Phase 1 settings
-      and auth-header helper.
-- [ ] Delete `TuniacApp/JellyfinService.{h,cpp}`, its construction in
-      `CCoreAudio::Startup`, and `Wininet.lib` from `TuniacApp` if nothing else needs it.
-- [ ] Decide `static=true` (original file, BASS must decode it) vs. letting Jellyfin
-      transcode (`/Audio/<id>/universal`) for formats BASS can't play.
-- [ ] Not logged in / token expired → fail with a logged reason, skip to next track.
-
-Known limitation to accept for now: the `\r\n` header trick only works with
-`bass_Plugin`. Returning URL and headers separately means changing `IAudioSource`;
-postpone until a second decoder needs it.
-
+- **Metadata from the decoder doesn't reach the entry.** BASS reports length, bitrate,
+  file type under the resolved URL, which matches no library entry. Phase 4 will set this
+  from Jellyfin's own data instead; mapping it back in `CCoreAudio::UpdateMetaData` is the
+  alternative if needed.
+- **No seeking.** `bass_Plugin` opens every URL with `BASS_STREAM_BLOCK` (radio-style).
+  Jellyfin tracks are finite files and could be opened seekable; needs a way for the
+  decoder to tell the two apart.
+- **"Allow untrusted HTTPS certificates" doesn't apply to playback** — BASS does its own
+  HTTPS. Self-signed servers can log in but not stream.
+- ~~Expired token at play time shows up only as a generic "failed to playback".~~ Fixed:
+  when no decoder can open a resolved link, `CCoreAudio` calls the new
+  `ITuniacServicePlugin::SourceFailed`, and the Jellyfin plugin asks the server about the
+  item and logs the real cause (login expired / no such item / it's an album, not a track /
+  track exists but couldn't be streamed or decoded, with its format). `bass_Plugin` also
+  logs the BASS error code for URLs it can't open (not the URL, which carries the token).
+  Found when a test used an album id from Jellyfin's web UI, which uses the same
+  `details?id=` URL for albums and tracks.
+- **Service plugin disabled:** the raw `jellyfin://` link goes to BASS, which fails it.
+- The `\r\n` header trick is BASS-specific; returning URL and headers separately means
+  changing `IAudioSource`. Postponed until a second decoder needs it.
 ## Phase 4 — Getting songs into Tuniac (long term)
 
 Prerequisite for every option below: a host API that adds a library entry **with

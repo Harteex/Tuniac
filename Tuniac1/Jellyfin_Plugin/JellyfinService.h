@@ -10,6 +10,10 @@ struct HttpResponse;
 // Settings live under services\Jellyfin; each server's login under services\Jellyfin\Servers\<ServerId>
 #define JELLYFIN_PREFS_KEY			TEXT("Jellyfin")
 
+// Library links look like jellyfin://<ServerId>/<ItemId>
+#define JELLYFIN_SCHEME				TEXT("jellyfin://")
+#define JELLYFIN_SCHEME_LEN			11
+
 enum JellyfinResult
 {
 	JELLYFIN_OK = 0,
@@ -38,11 +42,12 @@ protected:
 	TCHAR					m_szUserName[128];
 	TCHAR					m_szToken[128];
 
-	TCHAR					m_szLastError[256];
+	TCHAR					m_szLastError[512];
 
 	void					LoadSettings(void);
 	void					LoadServer(LPCTSTR szServerId);
 	void					SaveServer(void);
+	bool					GetServerLogin(LPCTSTR szServerId, LPTSTR szUrl, size_t cchUrl, LPTSTR szToken, size_t cchToken);
 
 	bool					GetPrefString(LPCTSTR szSubKey, LPCTSTR szName, LPTSTR szDest, size_t cchDest);
 	bool					SetPrefString(LPCTSTR szSubKey, LPCTSTR szName, LPCTSTR szValue);
@@ -71,6 +76,10 @@ public:
 
 	bool				About(HWND hWndParent);
 	bool				Configure(HWND hWndParent);
+
+	bool				CanHandle(LPCTSTR szSource);
+	bool				TranslateSource(LPTSTR szDest, size_t cchDest, LPCTSTR szSource);
+	void				SourceFailed(LPCTSTR szSource);
 
 	// Authenticate against a Jellyfin server (e.g. "https://jellyfin.example.com") and make it the
 	// active server. The token, user and server URL are persisted per ServerId; the password is not.

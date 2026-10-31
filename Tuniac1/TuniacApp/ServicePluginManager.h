@@ -33,6 +33,13 @@ public:
 	bool			IsPluginEnabled(unsigned int iPlugin);
 	bool			EnablePlugin(unsigned int iPlugin, bool bEnabled);
 
+	// Does an enabled service own this link?
+	bool			CanHandle(LPCTSTR szSource);
+	// Resolve a service link for a decoder. False if no enabled service owns it or it can't be played.
+	bool			TranslateSource(LPTSTR szDest, size_t cchDest, LPCTSTR szSource);
+	// A resolved link couldn't be opened by any decoder; let the service log why.
+	void			SourceFailed(LPCTSTR szSource);
+
 	//void			PostMessage(UINT Msg, WPARAM wParam, LPARAM lParam);
 
 	//void* GetVariable(Variable eVar);

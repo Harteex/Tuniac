@@ -264,6 +264,38 @@ bool			CServicePluginManager::EnablePlugin(unsigned int iPlugin, bool bEnabled)
 	return true;
 }
 
+bool			CServicePluginManager::CanHandle(LPCTSTR szSource)
+{
+	for (unsigned long x = 0; x < m_PluginArray.GetCount(); x++)
+	{
+		if (m_PluginArray[x].pPlugin != NULL && m_PluginArray[x].pPlugin->CanHandle(szSource))
+			return true;
+	}
+	return false;
+}
+
+bool			CServicePluginManager::TranslateSource(LPTSTR szDest, size_t cchDest, LPCTSTR szSource)
+{
+	for (unsigned long x = 0; x < m_PluginArray.GetCount(); x++)
+	{
+		if (m_PluginArray[x].pPlugin != NULL && m_PluginArray[x].pPlugin->CanHandle(szSource))
+			return m_PluginArray[x].pPlugin->TranslateSource(szDest, cchDest, szSource);
+	}
+	return false;
+}
+
+void			CServicePluginManager::SourceFailed(LPCTSTR szSource)
+{
+	for (unsigned long x = 0; x < m_PluginArray.GetCount(); x++)
+	{
+		if (m_PluginArray[x].pPlugin != NULL && m_PluginArray[x].pPlugin->CanHandle(szSource))
+		{
+			m_PluginArray[x].pPlugin->SourceFailed(szSource);
+			return;
+		}
+	}
+}
+
 void			CServicePluginManager::LogMessage(LPTSTR szModuleName, LPTSTR szMessage)
 {
 	if (tuniacApp.m_LogWindow)

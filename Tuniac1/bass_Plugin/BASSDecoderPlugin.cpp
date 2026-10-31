@@ -236,9 +236,20 @@ bool			CBASSDecoderPlugin::CanHandle(LPTSTR szSource)
 		}
 		else
 		{
-			char mbURL[512];
-			WideCharToMultiByte(CP_UTF8, 0, szSource, -1, mbURL, 512, 0, 0);
-			hStreamID = BASS_StreamCreateURL(mbURL, 0, BASS_STREAM_DECODE | BASS_SAMPLE_FLOAT | BASS_STREAM_BLOCK, NULL, 0);
+			// Room for service links resolved to "URL\r\nHeader: ...\r\n" with an auth token
+			char mbURL[4096];
+			if (WideCharToMultiByte(CP_UTF8, 0, szSource, -1, mbURL, 4096, 0, 0) > 0)
+				hStreamID = BASS_StreamCreateURL(mbURL, 0, BASS_STREAM_DECODE | BASS_SAMPLE_FLOAT | BASS_STREAM_BLOCK, NULL, 0);
+			else
+				hStreamID = 0;
+
+			// Only the error code: the URL may carry an auth token
+			if (!hStreamID && m_pHelper)
+			{
+				TCHAR szMessage[128];
+				StringCchPrintf(szMessage, 128, TEXT("Could not open stream, BASS error %d."), BASS_ErrorGetCode());
+				m_pHelper->LogConsoleMessage(TEXT("BASS"), szMessage);
+			}
 		}
 	}
 

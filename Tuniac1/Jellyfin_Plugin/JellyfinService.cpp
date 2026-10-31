@@ -469,6 +469,166 @@ void			CJellyfinService::SaveServer(void)
 	SetPrefString(JELLYFIN_PREFS_KEY, TEXT("ActiveServer"), m_szServerId);
 }
 
+// The stored login for any server, not just the active one, so links to every server we've
+// logged in to keep playing
+bool			CJellyfinService::GetServerLogin(LPCTSTR szServerId, LPTSTR szUrl, size_t cchUrl, LPTSTR szToken, size_t cchToken)
+{
+	szUrl[0] = TEXT('\0');
+	szToken[0] = TEXT('\0');
+
+	if (!IsSafeId(szServerId))
+		return false;
+
+	if (StrCmpI(szServerId, m_szServerId) == 0)
+	{
+		StringCchCopy(szUrl, cchUrl, m_szServerUrl);
+		StringCchCopy(szToken, cchToken, m_szToken);
+	}
+	else
+	{
+		TCHAR szSubKey[128];
+		StringCchPrintf(szSubKey, 128, TEXT("%s\\Servers\\%s"), JELLYFIN_PREFS_KEY, szServerId);
+		GetPrefString(szSubKey, TEXT("Url"), szUrl, cchUrl);
+		GetPrefString(szSubKey, TEXT("Token"), szToken, cchToken);
+	}
+
+	return szUrl[0] != TEXT('\0') && szToken[0] != TEXT('\0');
+}
+
+// playback
+
+// jellyfin://<ServerId>/<ItemId>; both buffers 64 characters
+static bool ParseLink(LPCTSTR szSource, LPTSTR szServerId, LPTSTR szItemId)
+{
+	szServerId[0] = TEXT('\0');
+	szItemId[0] = TEXT('\0');
+
+	if (szSource == NULL || StrCmpNI(szSource, JELLYFIN_SCHEME, JELLYFIN_SCHEME_LEN) != 0)
+		return false;
+
+	LPCTSTR szIds = szSource + JELLYFIN_SCHEME_LEN;
+	LPCTSTR szSlash = StrChr(szIds, TEXT('/'));
+
+	return szSlash != NULL &&
+		SUCCEEDED(StringCchCopyN(szServerId, 64, szIds, szSlash - szIds)) &&
+		SUCCEEDED(StringCchCopy(szItemId, 64, szSlash + 1)) &&
+		IsSafeId(szServerId) && IsSafeId(szItemId);
+}
+
+void			CJellyfinService::SourceFailed(LPCTSTR szSource)
+{
+	TCHAR szServerId[64];
+	TCHAR szItemId[64];
+	TCHAR szUrl[256];
+	TCHAR szToken[128];
+	if (!ParseLink(szSource, szServerId, szItemId) || !GetServerLogin(szServerId, szUrl, 256, szToken, 128))
+		return;
+
+	// Ask the server what the item is; the decoder can only say that opening the stream failed
+	TCHAR szPath[256];
+	TCHAR szRequestUrl[512];
+	TCHAR szHeaders[1024];
+	StringCchPrintf(szPath, 256, TEXT("/Items?Ids=%s&Fields=MediaSources"), szItemId);
+	if (!BuildUrl(szRequestUrl, 512, szUrl, szPath) || !BuildAuthHeader(szHeaders, 1024, szToken))
+		return;
+
+	CHttpService httpService;
+	httpService.SetAllowInvalidCertificates(m_bAllowInvalidCertificates);
+	HttpResponse response = httpService.Get(szRequestUrl, szHeaders);
+
+	TCHAR szAction[512];
+	StringCchPrintf(szAction, 512, TEXT("Playing %s"), szSource);
+	JellyfinResult result = ResultFromResponse(response, szAction);
+
+	if (result == JELLYFIN_ERROR_UNAUTHORIZED)
+	{
+		SetError(TEXT("Can't play %s: the login to %s has expired or was revoked. Log in again from the plugin's Configure dialog."), szSource, szUrl);
+	}
+	else if (result == JELLYFIN_OK)
+	{
+		rapidjson::Document responseDoc;
+		if (response.pContent != NULL)
+			responseDoc.Parse(response.pContent);
+
+		if (response.pContent == NULL || responseDoc.HasParseError() || !responseDoc.IsObject() ||
+			!responseDoc.HasMember("Items") || !responseDoc["Items"].IsArray())
+		{
+			SetError(TEXT("Can't play %s: unexpected reply from the server."), szSource);
+		}
+		else if (responseDoc["Items"].Size() == 0)
+		{
+			SetError(TEXT("Can't play %s: the server has no item with that id."), szSource);
+		}
+		else
+		{
+			const rapidjson::Value& item = responseDoc["Items"][0];
+			TCHAR szType[64];
+			TCHAR szName[128];
+			GetJsonString(item, "Type", szType, 64);
+			GetJsonString(item, "Name", szName, 128);
+
+			if (StrCmpI(szType, TEXT("Audio")) != 0)
+			{
+				SetError(TEXT("Can't play %s: it is a %s (\"%s\"), not a track. Links must point to a single track."), szSource, szType, szName);
+			}
+			else
+			{
+				TCHAR szContainer[32] = TEXT("unknown");
+				if (item.HasMember("MediaSources") && item["MediaSources"].IsArray() && item["MediaSources"].Size() > 0)
+					GetJsonString(item["MediaSources"][0], "Container", szContainer, 32);
+
+				SetError(TEXT("Can't play %s (\"%s\"): the server has the track, but it couldn't be streamed or decoded (format: %s)."), szSource, szName, szContainer);
+			}
+		}
+	}
+
+	if (response.pContent != NULL)
+		delete[] response.pContent;
+}
+
+bool			CJellyfinService::CanHandle(LPCTSTR szSource)
+{
+	return szSource != NULL && StrCmpNI(szSource, JELLYFIN_SCHEME, JELLYFIN_SCHEME_LEN) == 0;
+}
+
+bool			CJellyfinService::TranslateSource(LPTSTR szDest, size_t cchDest, LPCTSTR szSource)
+{
+	if (!CanHandle(szSource))
+		return false;
+
+	TCHAR szServerId[64];
+	TCHAR szItemId[64];
+	if (!ParseLink(szSource, szServerId, szItemId))
+	{
+		SetError(TEXT("Can't play %s: not a valid Jellyfin link."), szSource);
+		return false;
+	}
+
+	TCHAR szUrl[256];
+	TCHAR szToken[128];
+	if (!GetServerLogin(szServerId, szUrl, 256, szToken, 128))
+	{
+		SetError(TEXT("Can't play %s: not logged in to that Jellyfin server."), szSource);
+		return false;
+	}
+
+	// static=true streams the original file, which the decoder must be able to play. The auth
+	// header goes after the URL separated by \r\n, which BASS_StreamCreateURL sends as request headers.
+	TCHAR szPath[128];
+	TCHAR szHeaders[1024];
+	StringCchPrintf(szPath, 128, TEXT("/Audio/%s/stream?static=true"), szItemId);
+	if (!BuildUrl(szDest, cchDest, szUrl, szPath) ||
+		!BuildAuthHeader(szHeaders, 1024, szToken) ||
+		FAILED(StringCchCat(szDest, cchDest, TEXT("\r\n"))) ||
+		FAILED(StringCchCat(szDest, cchDest, szHeaders)))
+	{
+		SetError(TEXT("Can't play %s: could not build the stream request."), szSource);
+		return false;
+	}
+
+	return true;
+}
+
 // requests
 
 bool			CJellyfinService::BuildAuthHeader(LPTSTR szDest, size_t cchDest, LPCTSTR szToken)
@@ -503,7 +663,7 @@ void			CJellyfinService::SetError(LPCTSTR szFormat, ...)
 {
 	va_list args;
 	va_start(args, szFormat);
-	StringCchVPrintf(m_szLastError, 256, szFormat, args);
+	StringCchVPrintf(m_szLastError, 512, szFormat, args);
 	va_end(args);
 
 	if (m_pHelper)

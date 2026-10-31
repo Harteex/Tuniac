@@ -124,11 +124,18 @@ CAudioStream::CAudioStream()
 	m_Output		= NULL;
 	pBuffer			= NULL;
 	ulNumSamples	= 0;
+
+	m_szResolvedSource	= NULL;
 }
 
 CAudioStream::~CAudioStream(void)
 {
-
+	// Shutdown() has destroyed the decoder by now, so nothing refers to this any more
+	if(m_szResolvedSource)
+	{
+		delete[] m_szResolvedSource;
+		m_szResolvedSource = NULL;
+	}
 }
 
 bool CAudioStream::Initialize(IAudioSource * pSource, CAudioOutput * pOutput, LPTSTR szSource)

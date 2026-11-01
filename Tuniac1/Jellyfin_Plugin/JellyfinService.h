@@ -1,8 +1,11 @@
 #pragma once
 
 #include "ITuniacServicePlugin.h"
+#include "rapidjson/fwd.h"
 
 struct HttpResponse;
+struct JellyfinItems;
+struct TrackList;
 
 #define JELLYFIN_CLIENT_NAME		TEXT("Tuniac")
 #define JELLYFIN_CLIENT_VERSION		TEXT("1.0")
@@ -63,6 +66,20 @@ protected:
 	void					UpdateDialog(HWND hDlg, LPCTSTR szNote);
 	void					SetDialogBusy(HWND hDlg, LPCTSTR szStatus);
 
+	// import dialog
+	JellyfinItems *			m_pSearchResults;
+
+	static LRESULT CALLBACK	ImportDlgProcStub(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+	LRESULT CALLBACK		ImportDlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+	void					SetImportBusy(HWND hDlg, bool bBusy, LPCTSTR szStatus);
+	void					SearchAndShow(HWND hDlg);
+	void					AddSelected(HWND hDlg);
+
+	// GET <active server><szEndpoint>?<szQuery> for an { Items: [...] } reply, e.g. /Items or /Artists
+	JellyfinResult			GetItems(LPCTSTR szEndpoint, LPCTSTR szQuery, JellyfinItems * pItems, LPCTSTR szAction);
+	void					AppendArtistAlbums(LPCTSTR szEncodedTerm, JellyfinItems * pItems);
+	bool					AddItemTracks(const rapidjson::Value & item, TrackList * pTracks);
+
 public:
 	CJellyfinService();
 	~CJellyfinService();
@@ -80,6 +97,8 @@ public:
 	bool				CanHandle(LPCTSTR szSource);
 	bool				TranslateSource(LPTSTR szDest, size_t cchDest, LPCTSTR szSource);
 	void				SourceFailed(LPCTSTR szSource);
+
+	bool				Import(HWND hWndParent);
 
 	// Authenticate against a Jellyfin server (e.g. "https://jellyfin.example.com") and make it the
 	// active server. The token, user and server URL are persisted per ServerId; the password is not.

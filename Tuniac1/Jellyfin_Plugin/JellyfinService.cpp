@@ -7,6 +7,44 @@
 #include "rapidjson/stringbuffer.h"
 #include <objbase.h>
 #include <tchar.h>
+#include <commctrl.h>
+
+// A parsed /Items reply: { "Items": [ ... ], "TotalRecordCount": n }
+struct JellyfinItems
+{
+	rapidjson::Document		doc;
+};
+
+// Tracks collected for one AddToLibrary call
+struct TrackList
+{
+	ServiceTrack *			pTracks;
+	unsigned long			ulCount;
+	unsigned long			ulCapacity;
+
+	TrackList() : pTracks(NULL), ulCount(0), ulCapacity(0) {}
+	~TrackList() { if (pTracks) delete[] pTracks; }
+
+	ServiceTrack *	Add(void)
+	{
+		if (ulCount == ulCapacity)
+		{
+			unsigned long ulNewCapacity = ulCapacity ? ulCapacity * 2 : 32;
+			ServiceTrack * pNew = new ServiceTrack[ulNewCapacity];
+			if (pTracks)
+			{
+				memcpy(pNew, pTracks, ulCount * sizeof(ServiceTrack));
+				delete[] pTracks;
+			}
+			pTracks = pNew;
+			ulCapacity = ulNewCapacity;
+		}
+
+		ServiceTrack * pTrack = &pTracks[ulCount++];
+		ZeroMemory(pTrack, sizeof(ServiceTrack));
+		return pTrack;
+	}
+};
 
 static HINSTANCE g_hInstance = NULL;
 
@@ -20,6 +58,73 @@ static char* TcharToUtf8(LPCTSTR szSrc)
 	char* szUtf8 = new char[iLen];
 	WideCharToMultiByte(CP_UTF8, 0, szSrc, -1, szUtf8, iLen, NULL, NULL);
 	return szUtf8;
+}
+
+// For display text: like GetJsonString, but truncates to fit instead of failing
+static bool GetJsonText(const rapidjson::Value& obj, const char* szName, LPTSTR szDest, size_t cchDest)
+{
+	szDest[0] = TEXT('\0');
+	if (!obj.IsObject() || !obj.HasMember(szName) || !obj[szName].IsString())
+		return false;
+
+	int iLen = MultiByteToWideChar(CP_UTF8, 0, obj[szName].GetString(), -1, NULL, 0);
+	if (iLen <= 0)
+		return false;
+
+	TCHAR * szText = new TCHAR[iLen];
+	MultiByteToWideChar(CP_UTF8, 0, obj[szName].GetString(), -1, szText, iLen);
+	StringCchCopy(szDest, cchDest, szText);
+	delete[] szText;
+	return true;
+}
+
+// Join a JSON array of strings ("Artists": ["A", "B"]) as "A, B"
+static void GetJsonStringList(const rapidjson::Value& obj, const char* szName, LPTSTR szDest, size_t cchDest)
+{
+	szDest[0] = TEXT('\0');
+	if (!obj.IsObject() || !obj.HasMember(szName) || !obj[szName].IsArray())
+		return;
+
+	const rapidjson::Value& list = obj[szName];
+	for (rapidjson::SizeType i = 0; i < list.Size(); i++)
+	{
+		if (!list[i].IsString())
+			continue;
+
+		int iLen = MultiByteToWideChar(CP_UTF8, 0, list[i].GetString(), -1, NULL, 0);
+		if (iLen <= 0)
+			continue;
+
+		TCHAR * szText = new TCHAR[iLen];
+		MultiByteToWideChar(CP_UTF8, 0, list[i].GetString(), -1, szText, iLen);
+		if (szDest[0] != TEXT('\0'))
+			StringCchCat(szDest, cchDest, TEXT(", "));
+		StringCchCat(szDest, cchDest, szText);
+		delete[] szText;
+	}
+}
+
+static unsigned long GetJsonUInt(const rapidjson::Value& obj, const char* szName)
+{
+	if (!obj.IsObject() || !obj.HasMember(szName) || !obj[szName].IsNumber())
+		return 0;
+
+	const rapidjson::Value& value = obj[szName];
+	if (value.IsUint64())
+		return (unsigned long)value.GetUint64();
+	if (value.IsInt64() && value.GetInt64() > 0)
+		return (unsigned long)value.GetInt64();
+	return 0;
+}
+
+// Jellyfin durations are in 100 ns ticks
+static unsigned long GetJsonDurationMS(const rapidjson::Value& obj)
+{
+	if (!obj.IsObject() || !obj.HasMember("RunTimeTicks") || !obj["RunTimeTicks"].IsInt64())
+		return 0;
+
+	__int64 iTicks = obj["RunTimeTicks"].GetInt64();
+	return iTicks > 0 ? (unsigned long)(iTicks / 10000) : 0;
 }
 
 static bool GetJsonString(const rapidjson::Value& obj, const char* szName, LPTSTR szDest, size_t cchDest)
@@ -135,7 +240,8 @@ extern "C" __declspec(dllexport) unsigned long		GetTuniacServicePluginVersion(vo
 
 CJellyfinService::CJellyfinService() :
 	m_pHelper(NULL),
-	m_bAllowInvalidCertificates(false)
+	m_bAllowInvalidCertificates(false),
+	m_pSearchResults(NULL)
 {
 	m_szDeviceId[0] = TEXT('\0');
 	m_szDeviceName[0] = TEXT('\0');
@@ -149,7 +255,11 @@ CJellyfinService::CJellyfinService() :
 
 CJellyfinService::~CJellyfinService()
 {
-
+	if (m_pSearchResults)
+	{
+		delete m_pSearchResults;
+		m_pSearchResults = NULL;
+	}
 }
 
 void			CJellyfinService::Destroy(void)
@@ -164,7 +274,7 @@ LPTSTR			CJellyfinService::GetPluginName(void)
 
 unsigned long	CJellyfinService::GetFlags(void)
 {
-	return SERVICEPLUGINFLAGS_ABOUT | SERVICEPLUGINFLAGS_CONFIG;
+	return SERVICEPLUGINFLAGS_ABOUT | SERVICEPLUGINFLAGS_CONFIG | SERVICEPLUGINFLAGS_IMPORT;
 }
 
 bool			CJellyfinService::SetHelper(ITuniacServicePluginHelper* pHelper)
@@ -936,4 +1046,480 @@ JellyfinResult	CJellyfinService::Logout(void)
 	m_pHelper->LogMessage((LPTSTR)TEXT("Jellyfin"), szMessage);
 
 	return JELLYFIN_OK;
+}
+
+// import
+
+// Fields every track needs for its library entry
+#define JELLYFIN_TRACK_FIELDS		TEXT("Fields=Genres,MediaSources")
+
+// lParam of each row in the results list: index into the reply's Items array
+#define IMPORT_COLUMN_TYPE			0
+#define IMPORT_COLUMN_NAME			1
+#define IMPORT_COLUMN_ARTIST		2
+#define IMPORT_COLUMN_ALBUM			3
+#define IMPORT_COLUMN_LENGTH		4
+
+JellyfinResult	CJellyfinService::GetItems(LPCTSTR szEndpoint, LPCTSTR szQuery, JellyfinItems * pItems, LPCTSTR szAction)
+{
+	TCHAR szPath[1024];
+	TCHAR szUrl[1536];
+	TCHAR szHeaders[1024];
+	if (FAILED(StringCchPrintf(szPath, 1024, TEXT("%s?userId=%s&%s"), szEndpoint, m_szUserId, szQuery)) ||
+		!BuildUrl(szUrl, 1536, m_szServerUrl, szPath) ||
+		!BuildAuthHeader(szHeaders, 1024, m_szToken))
+	{
+		SetError(TEXT("%s failed: could not build the request."), szAction);
+		return JELLYFIN_ERROR_INVALIDARGS;
+	}
+
+	CHttpService httpService;
+	httpService.SetAllowInvalidCertificates(m_bAllowInvalidCertificates);
+	HttpResponse response = httpService.Get(szUrl, szHeaders);
+
+	JellyfinResult result = ResultFromResponse(response, szAction);
+	if (result == JELLYFIN_OK)
+	{
+		if (response.pContent != NULL)
+			pItems->doc.Parse(response.pContent);
+
+		if (response.pContent == NULL || pItems->doc.HasParseError() || !pItems->doc.IsObject() ||
+			!pItems->doc.HasMember("Items") || !pItems->doc["Items"].IsArray())
+		{
+			SetError(TEXT("%s failed: unexpected reply from the server."), szAction);
+			result = JELLYFIN_ERROR_RESPONSE;
+		}
+	}
+
+	if (response.pContent != NULL)
+		delete[] response.pContent;
+
+	return result;
+}
+
+// One track for the library from an Audio item, or every track of a MusicAlbum item
+bool			CJellyfinService::AddItemTracks(const rapidjson::Value & item, TrackList * pTracks)
+{
+	TCHAR szType[64];
+	TCHAR szId[64];
+	GetJsonString(item, "Type", szType, 64);
+	if (!GetJsonString(item, "Id", szId, 64) || !IsSafeId(szId))
+		return false;
+
+	if (StrCmpI(szType, TEXT("MusicAlbum")) == 0)
+	{
+		TCHAR szQuery[256];
+		StringCchPrintf(szQuery, 256, TEXT("ParentId=%s&IncludeItemTypes=Audio&Recursive=true&SortBy=ParentIndexNumber,IndexNumber,SortName&%s"), szId, JELLYFIN_TRACK_FIELDS);
+
+		JellyfinItems tracks;
+		if (GetItems(TEXT("/Items"), szQuery, &tracks, TEXT("Getting the album's tracks")) != JELLYFIN_OK)
+			return false;
+
+		const rapidjson::Value& items = tracks.doc["Items"];
+		for (rapidjson::SizeType i = 0; i < items.Size(); i++)
+			AddItemTracks(items[i], pTracks);
+
+		return true;
+	}
+
+	if (StrCmpI(szType, TEXT("Audio")) != 0)
+		return false;
+
+	ServiceTrack * pTrack = pTracks->Add();
+
+	StringCchPrintf(pTrack->szURL, MAX_PATH, TEXT("%s%s/%s"), JELLYFIN_SCHEME, m_szServerId, szId);
+	GetJsonText(item, "Name", pTrack->szTitle, 128);
+	GetJsonStringList(item, "Artists", pTrack->szArtist, 128);
+	GetJsonText(item, "Album", pTrack->szAlbum, 128);
+	GetJsonText(item, "AlbumArtist", pTrack->szAlbumArtist, 128);
+	GetJsonStringList(item, "Genres", pTrack->szGenre, 128);
+
+	if (pTrack->szArtist[0] == TEXT('\0'))
+		StringCchCopy(pTrack->szArtist, 128, pTrack->szAlbumArtist);
+
+	pTrack->ulYear				= GetJsonUInt(item, "ProductionYear");
+	pTrack->usTrack[0]			= (unsigned short)GetJsonUInt(item, "IndexNumber");
+	pTrack->usDisc[0]			= (unsigned short)GetJsonUInt(item, "ParentIndexNumber");
+	pTrack->ulPlaybackTimeMS	= GetJsonDurationMS(item);
+
+	// Format details come from the file the server would stream (static=true plays the original)
+	if (item.HasMember("MediaSources") && item["MediaSources"].IsArray() && item["MediaSources"].Size() > 0)
+	{
+		const rapidjson::Value& source = item["MediaSources"][0];
+		GetJsonText(source, "Container", pTrack->szFileType, 16);
+		pTrack->ulBitRate = GetJsonUInt(source, "Bitrate");
+
+		if (source.HasMember("MediaStreams") && source["MediaStreams"].IsArray())
+		{
+			const rapidjson::Value& streams = source["MediaStreams"];
+			for (rapidjson::SizeType i = 0; i < streams.Size(); i++)
+			{
+				TCHAR szStreamType[32];
+				GetJsonString(streams[i], "Type", szStreamType, 32);
+				if (StrCmpI(szStreamType, TEXT("Audio")) != 0)
+					continue;
+
+				pTrack->ulSampleRate	= GetJsonUInt(streams[i], "SampleRate");
+				pTrack->ulChannels		= GetJsonUInt(streams[i], "Channels");
+				pTrack->ulBitsPerSample	= GetJsonUInt(streams[i], "BitDepth");
+				break;
+			}
+		}
+	}
+
+	return true;
+}
+
+bool			CJellyfinService::Import(HWND hWndParent)
+{
+	if (!IsLoggedIn())
+	{
+		MessageBox(hWndParent, TEXT("Log in to a Jellyfin server first, in Preferences > Services > Jellyfin > Configure."), TEXT("Import from Jellyfin"), MB_OK | MB_ICONINFORMATION);
+		return false;
+	}
+
+	DialogBoxParam(g_hInstance, MAKEINTRESOURCE(IDD_JELLYFIN_IMPORT), hWndParent, (DLGPROC)ImportDlgProcStub, (DWORD_PTR)this);
+
+	if (m_pSearchResults)
+	{
+		delete m_pSearchResults;
+		m_pSearchResults = NULL;
+	}
+
+	return true;
+}
+
+LRESULT CALLBACK	CJellyfinService::ImportDlgProcStub(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	if (uMsg == WM_INITDIALOG)
+		SetWindowLongPtr(hDlg, GWLP_USERDATA, lParam);
+
+	// Some messages (WM_SETFONT) arrive before WM_INITDIALOG
+	CJellyfinService* pJellyfin = (CJellyfinService*)(LONG_PTR)GetWindowLongPtr(hDlg, GWLP_USERDATA);
+	if (pJellyfin == NULL)
+		return FALSE;
+
+	return pJellyfin->ImportDlgProc(hDlg, uMsg, wParam, lParam);
+}
+
+void			CJellyfinService::SetImportBusy(HWND hDlg, bool bBusy, LPCTSTR szStatus)
+{
+	EnableWindow(GetDlgItem(hDlg, IDC_JF_SEARCH), !bBusy);
+	EnableWindow(GetDlgItem(hDlg, IDC_JF_ADD), !bBusy && ListView_GetSelectedCount(GetDlgItem(hDlg, IDC_JF_RESULTS)) > 0);
+
+	if (szStatus != NULL)
+		SetDlgItemText(hDlg, IDC_JF_IMPORTSTATUS, szStatus);
+
+	if (bBusy)
+	{
+		// Requests block this thread, so paint now and show a wait cursor until they return
+		UpdateWindow(hDlg);
+		SetCursor(LoadCursor(NULL, IDC_WAIT));
+	}
+}
+
+void			CJellyfinService::AppendArtistAlbums(LPCTSTR szEncodedTerm, JellyfinItems * pItems)
+{
+	TCHAR szQuery[1024];
+	JellyfinItems artists;
+	if (FAILED(StringCchPrintf(szQuery, 1024, TEXT("searchTerm=%s&Limit=20"), szEncodedTerm)) ||
+		GetItems(TEXT("/Artists"), szQuery, &artists, TEXT("Artist search")) != JELLYFIN_OK)
+		return;
+
+	// ArtistIds=<id>,<id>,...
+	TCHAR szArtistIds[1024] = TEXT("");
+	const rapidjson::Value& artistItems = artists.doc["Items"];
+	for (rapidjson::SizeType i = 0; i < artistItems.Size(); i++)
+	{
+		TCHAR szId[64];
+		if (!GetJsonString(artistItems[i], "Id", szId, 64) || !IsSafeId(szId))
+			continue;
+		if (szArtistIds[0] != TEXT('\0'))
+			StringCchCat(szArtistIds, 1024, TEXT(","));
+		StringCchCat(szArtistIds, 1024, szId);
+	}
+	if (szArtistIds[0] == TEXT('\0'))
+		return;
+
+	JellyfinItems albums;
+	if (FAILED(StringCchPrintf(szQuery, 1024, TEXT("ArtistIds=%s&IncludeItemTypes=MusicAlbum&Recursive=true&Limit=200&SortBy=SortName&%s"), szArtistIds, JELLYFIN_TRACK_FIELDS)) ||
+		GetItems(TEXT("/Items"), szQuery, &albums, TEXT("Artist search")) != JELLYFIN_OK)
+		return;
+
+	// Copy over the albums the name search didn't already find
+	rapidjson::Value& items = pItems->doc["Items"];
+	rapidjson::Document::AllocatorType& allocator = pItems->doc.GetAllocator();
+	const rapidjson::Value& albumItems = albums.doc["Items"];
+	for (rapidjson::SizeType i = 0; i < albumItems.Size(); i++)
+	{
+		TCHAR szId[64];
+		if (!GetJsonString(albumItems[i], "Id", szId, 64))
+			continue;
+
+		bool bFound = false;
+		for (rapidjson::SizeType j = 0; j < items.Size() && !bFound; j++)
+		{
+			TCHAR szExistingId[64];
+			bFound = GetJsonString(items[j], "Id", szExistingId, 64) && StrCmpI(szId, szExistingId) == 0;
+		}
+
+		if (!bFound)
+			items.PushBack(rapidjson::Value(albumItems[i], allocator), allocator);
+	}
+}
+
+void			CJellyfinService::SearchAndShow(HWND hDlg)
+{
+	HWND hList = GetDlgItem(hDlg, IDC_JF_RESULTS);
+
+	TCHAR szTerm[256];
+	GetDlgItemText(hDlg, IDC_JF_SEARCHTEXT, szTerm, 256);
+	StrTrim(szTerm, TEXT(" \t"));
+	if (szTerm[0] == TEXT('\0'))
+	{
+		SetDlgItemText(hDlg, IDC_JF_IMPORTSTATUS, TEXT("Type part of a track, album or artist name."));
+		return;
+	}
+
+	ListView_DeleteAllItems(hList);
+	if (m_pSearchResults)
+	{
+		delete m_pSearchResults;
+		m_pSearchResults = NULL;
+	}
+
+	SetImportBusy(hDlg, true, TEXT("Searching..."));
+
+	TCHAR szEncoded[768];
+	TCHAR szQuery[1024];
+	JellyfinResult result = JELLYFIN_ERROR_INVALIDARGS;
+	m_pSearchResults = new JellyfinItems;
+	if (UrlEncode(szTerm, szEncoded, 768) &&
+		SUCCEEDED(StringCchPrintf(szQuery, 1024, TEXT("searchTerm=%s&IncludeItemTypes=MusicAlbum,Audio&Recursive=true&Limit=200&SortBy=SortName&%s"), szEncoded, JELLYFIN_TRACK_FIELDS)))
+	{
+		result = GetItems(TEXT("/Items"), szQuery, m_pSearchResults, TEXT("Search"));
+	}
+
+	// searchTerm only matches item names, so also list the albums of artists whose name matches
+	unsigned long ulTotal = 0;
+	if (result == JELLYFIN_OK)
+	{
+		ulTotal = GetJsonUInt(m_pSearchResults->doc, "TotalRecordCount");
+		if (ulTotal < m_pSearchResults->doc["Items"].Size())
+			ulTotal = m_pSearchResults->doc["Items"].Size();
+		AppendArtistAlbums(szEncoded, m_pSearchResults);
+	}
+
+	if (result != JELLYFIN_OK)
+	{
+		delete m_pSearchResults;
+		m_pSearchResults = NULL;
+		SetImportBusy(hDlg, false, m_szLastError);
+		return;
+	}
+
+	// Albums first, then tracks
+	const rapidjson::Value& items = m_pSearchResults->doc["Items"];
+	int iRow = 0;
+	unsigned long ulAlbums = 0;
+	unsigned long ulTracks = 0;
+	for (int iPass = 0; iPass < 2; iPass++)
+	{
+		for (rapidjson::SizeType i = 0; i < items.Size(); i++)
+		{
+			TCHAR szType[64];
+			GetJsonString(items[i], "Type", szType, 64);
+			bool bAlbum = StrCmpI(szType, TEXT("MusicAlbum")) == 0;
+			bool bTrack = StrCmpI(szType, TEXT("Audio")) == 0;
+			if ((iPass == 0 && !bAlbum) || (iPass == 1 && !bTrack))
+				continue;
+
+			TCHAR szName[128];
+			TCHAR szArtist[128];
+			TCHAR szAlbum[128];
+			TCHAR szLength[32];
+			GetJsonText(items[i], "Name", szName, 128);
+			GetJsonText(items[i], "AlbumArtist", szArtist, 128);
+			if (bTrack)
+			{
+				TCHAR szArtists[128];
+				GetJsonStringList(items[i], "Artists", szArtists, 128);
+				if (szArtists[0] != TEXT('\0'))
+					StringCchCopy(szArtist, 128, szArtists);
+				GetJsonText(items[i], "Album", szAlbum, 128);
+			}
+			else
+			{
+				szAlbum[0] = TEXT('\0');
+			}
+
+			unsigned long ulSeconds = GetJsonDurationMS(items[i]) / 1000;
+			if (ulSeconds >= 3600)
+				StringCchPrintf(szLength, 32, TEXT("%lu:%02lu:%02lu"), ulSeconds / 3600, (ulSeconds / 60) % 60, ulSeconds % 60);
+			else if (ulSeconds > 0)
+				StringCchPrintf(szLength, 32, TEXT("%lu:%02lu"), ulSeconds / 60, ulSeconds % 60);
+			else
+				szLength[0] = TEXT('\0');
+
+			LVITEM lvItem;
+			ZeroMemory(&lvItem, sizeof(LVITEM));
+			lvItem.mask = LVIF_TEXT | LVIF_PARAM;
+			lvItem.iItem = iRow++;
+			lvItem.pszText = bAlbum ? (LPTSTR)TEXT("Album") : (LPTSTR)TEXT("Track");
+			lvItem.lParam = (LPARAM)i;
+			int iIndex = ListView_InsertItem(hList, &lvItem);
+
+			ListView_SetItemText(hList, iIndex, IMPORT_COLUMN_NAME, szName);
+			ListView_SetItemText(hList, iIndex, IMPORT_COLUMN_ARTIST, szArtist);
+			ListView_SetItemText(hList, iIndex, IMPORT_COLUMN_ALBUM, szAlbum);
+			ListView_SetItemText(hList, iIndex, IMPORT_COLUMN_LENGTH, szLength);
+
+			if (bAlbum)
+				ulAlbums++;
+			else
+				ulTracks++;
+		}
+	}
+
+	TCHAR szStatus[256];
+	if (ulAlbums + ulTracks == 0)
+		StringCchCopy(szStatus, 256, TEXT("Nothing found."));
+	else if (ulTotal > 200)
+		StringCchPrintf(szStatus, 256, TEXT("%lu albums, %lu tracks (only the first 200 of %lu name matches; narrow the search to see more)."), ulAlbums, ulTracks, ulTotal);
+	else
+		StringCchPrintf(szStatus, 256, TEXT("%lu albums, %lu tracks. Select some and click Add to library."), ulAlbums, ulTracks);
+
+	SetImportBusy(hDlg, false, szStatus);
+}
+
+void			CJellyfinService::AddSelected(HWND hDlg)
+{
+	HWND hList = GetDlgItem(hDlg, IDC_JF_RESULTS);
+	if (m_pSearchResults == NULL || ListView_GetSelectedCount(hList) == 0)
+		return;
+
+	SetImportBusy(hDlg, true, TEXT("Adding..."));
+	m_szLastError[0] = TEXT('\0');
+
+	const rapidjson::Value& items = m_pSearchResults->doc["Items"];
+	TrackList tracks;
+	unsigned long ulFailed = 0;
+
+	int iRow = -1;
+	while ((iRow = ListView_GetNextItem(hList, iRow, LVNI_SELECTED)) != -1)
+	{
+		LVITEM lvItem;
+		ZeroMemory(&lvItem, sizeof(LVITEM));
+		lvItem.mask = LVIF_PARAM;
+		lvItem.iItem = iRow;
+		if (!ListView_GetItem(hList, &lvItem) || (rapidjson::SizeType)lvItem.lParam >= items.Size())
+			continue;
+
+		if (!AddItemTracks(items[(rapidjson::SizeType)lvItem.lParam], &tracks))
+			ulFailed++;
+	}
+
+	unsigned long ulAdded = 0;
+	if (tracks.ulCount > 0)
+		ulAdded = m_pHelper->AddToLibrary(tracks.pTracks, tracks.ulCount);
+
+	TCHAR szStatus[640];
+	StringCchPrintf(szStatus, 640, TEXT("Added %lu tracks to the library"), ulAdded);
+	if (tracks.ulCount > ulAdded)
+		StringCchPrintf(szStatus + _tcslen(szStatus), 640 - _tcslen(szStatus), TEXT(" (%lu were already there)"), tracks.ulCount - ulAdded);
+	StringCchCat(szStatus, 640, TEXT("."));
+	if (ulFailed > 0 && m_szLastError[0] != TEXT('\0'))
+	{
+		StringCchCat(szStatus, 640, TEXT(" "));
+		StringCchCat(szStatus, 640, m_szLastError);
+	}
+
+	TCHAR szMessage[256];
+	StringCchPrintf(szMessage, 256, TEXT("Imported %lu tracks from %s."), ulAdded, m_szServerUrl);
+	m_pHelper->LogMessage((LPTSTR)TEXT("Jellyfin"), szMessage);
+
+	SetImportBusy(hDlg, false, szStatus);
+}
+
+LRESULT CALLBACK	CJellyfinService::ImportDlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (uMsg)
+	{
+		case WM_INITDIALOG:
+		{
+			m_szLastError[0] = TEXT('\0');
+
+			TCHAR szTitle[384];
+			StringCchPrintf(szTitle, 384, TEXT("Import from Jellyfin - %s on %s"), m_szUserName, m_szServerUrl);
+			SetWindowText(hDlg, szTitle);
+
+			HWND hList = GetDlgItem(hDlg, IDC_JF_RESULTS);
+			ListView_SetExtendedListViewStyle(hList, LVS_EX_FULLROWSELECT);
+
+			struct { LPCTSTR szName; int iWidth; } columns[] =
+			{
+				{ TEXT("Type"),		50 },
+				{ TEXT("Name"),		220 },
+				{ TEXT("Artist"),	150 },
+				{ TEXT("Album"),	150 },
+				{ TEXT("Length"),	55 },
+			};
+			for (int i = 0; i < sizeof(columns) / sizeof(columns[0]); i++)
+			{
+				LVCOLUMN lvColumn;
+				ZeroMemory(&lvColumn, sizeof(LVCOLUMN));
+				lvColumn.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
+				lvColumn.pszText = (LPTSTR)columns[i].szName;
+				lvColumn.cx = columns[i].iWidth;
+				lvColumn.iSubItem = i;
+				ListView_InsertColumn(hList, i, &lvColumn);
+			}
+
+			SendDlgItemMessage(hDlg, IDC_JF_SEARCHTEXT, EM_LIMITTEXT, 255, 0);
+			SetImportBusy(hDlg, false, TEXT("Search for tracks or albums. Adding an album adds all its tracks."));
+			SetFocus(GetDlgItem(hDlg, IDC_JF_SEARCHTEXT));
+		}
+		return FALSE;
+
+		case WM_NOTIFY:
+		{
+			LPNMHDR pHdr = (LPNMHDR)lParam;
+			if (pHdr->idFrom != IDC_JF_RESULTS)
+				return FALSE;
+
+			if (pHdr->code == LVN_ITEMCHANGED)
+				EnableWindow(GetDlgItem(hDlg, IDC_JF_ADD), ListView_GetSelectedCount(pHdr->hwndFrom) > 0);
+			else if (pHdr->code == NM_DBLCLK)
+				AddSelected(hDlg);
+			else
+				return FALSE;
+		}
+		break;
+
+		case WM_COMMAND:
+			switch (LOWORD(wParam))
+			{
+				case IDC_JF_SEARCH:
+					SearchAndShow(hDlg);
+					break;
+
+				case IDC_JF_ADD:
+					AddSelected(hDlg);
+					break;
+
+				case IDOK:
+				case IDCANCEL:
+					EndDialog(hDlg, wParam);
+					break;
+
+				default:
+					return FALSE;
+			}
+			break;
+
+		default:
+			return FALSE;
+	}
+
+	return TRUE;
 }

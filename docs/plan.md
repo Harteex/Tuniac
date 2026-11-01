@@ -156,34 +156,58 @@ Known limitations, deliberately left for later:
 - **Service plugin disabled:** the raw `jellyfin://` link goes to BASS, which fails it.
 - The `\r\n` header trick is BASS-specific; returning URL and headers separately means
   changing `IAudioSource`. Postponed until a second decoder needs it.
-## Phase 4 — Getting songs into Tuniac (long term)
+## Phase 4 — Getting songs into Tuniac
 
-Prerequisite for every option below: a host API that adds a library entry **with
-metadata** (title, artist, album, track no., duration, year, genre) for a URL.
-`AddStreamToLibrary` only sets the URL and puts it in the artist field. Needs a new
-helper-interface method, e.g. `AddEntry(LibraryEntry*)`, or a service-flavoured variant.
+Chose **A. Search & add** first (B, full sync, can reuse the same plumbing later; C, a
+live source view, only if A/B feel wrong). Decided: opened from the File menu, finds
+tracks and albums, adds to the library only.
 
-Options for how songs get there:
+### 4a — Search & add (done)
 
-| | How | Pros | Cons |
-|---|---|---|---|
-| **A. Search & add** | Plugin dialog: search box → `GET /Items?searchTerm=…&IncludeItemTypes=Audio&Recursive=true` → pick tracks/albums → add to library or current playlist | Small, user in control, no sync logic | Library only has what you added; no browsing |
-| **B. Full sync** | Pull all audio items into the library; periodic/incremental refresh (`MinDateLastSaved`) to pick up new and removed songs | Feels like local music; library search/sort just work | Large libraries, sync/deletion bookkeeping, startup cost |
-| **C. Live source view** | A new `ISourceView` / playlist type that browses the server directly, nothing stored | Always current, no sync | Biggest UI change; Tuniac's views assume the library |
+- [x] Interface: `ServiceTrack` (a POD with the library fields a service can fill in),
+      `ITuniacServicePluginHelper::AddToLibrary(ServiceTrack*, count)`,
+      `SERVICEPLUGINFLAGS_IMPORT` and `ITuniacServicePlugin::Import(HWND)`. Still no version
+      bump.
+- [x] Host: `CMediaLibrary::AddServiceTracks` stores entries as given (`ENTRY_KIND_URL`,
+      real length/bitrate/etc., no tag reading), skips links already in the library, does
+      *not* put them in the "Streams" playlist, rebuilds the library view once per batch.
+- [x] Host: File menu gets "Import from <name>..." for each enabled service plugin with
+      the import flag, rebuilt on `WM_INITMENUPOPUP` so enabling/disabling is picked up
+      live. Command IDs `SERVICEMENU_BASE` (49900) + plugin index.
+- [x] Host: "Automatically skip streams" (on by default) used `PathIsURL`, so it would
+      have skipped every Jellyfin track in shuffle. Now only URL entries with no fixed
+      length (`LENGTH_STREAM`, i.e. radio) count as streams (`IsSkippableStream` in
+      `BasePlaylist.cpp`).
+- [x] Jellyfin: `IDD_JELLYFIN_IMPORT` dialog — search box, results list (albums first, then
+      tracks; type, name, artist, album, length), multi-select, Add to library (or
+      double-click), status line ("Added N tracks (M were already there)").
+- [x] Search = `/Items?searchTerm=…&IncludeItemTypes=MusicAlbum,Audio` (max 200), plus
+      the albums of artists whose name matches (`/Artists?searchTerm=…` →
+      `/Items?ArtistIds=…`), because `searchTerm` only matches item *names* — searching
+      an artist otherwise finds nothing.
+- [x] Adding an album fetches its tracks (`ParentId=…`, sorted by disc/track). Track
+      metadata from Jellyfin: title, artists, album, album artist, genres, year, track/disc
+      number, length (`RunTimeTicks`), container, bitrate, sample rate, channels, bit depth.
 
-Suggestion: **start with A**. It needs the same "add entry with metadata" plumbing that B
-would, so B can be added later as "add everything + refresh" without throwing work away.
-Revisit C only if A/B feel wrong in use.
+Verified by driving the real DLL's dialog against `demo.jellyfin.org/stable` with a fake
+host: artist search → 2 albums → added → 3 tracks with full metadata. **Not yet tried
+inside Tuniac**, i.e. the File menu item and `AddServiceTracks` themselves.
 
-Decisions to make before Phase 4:
+### Next / open
 
-- [x] URL format: `jellyfin://<serverid>/<itemid>` (decided — no single-server assumption).
-- [ ] What happens to library entries when logged out or the server is gone — keep and
-      fail at play time (simplest), or hide.
+- [ ] Try in Tuniac: import, play, shuffle, restart (library persistence), import again
+      (duplicates skipped).
+- [ ] Track length from the decoder still doesn't reach the entry (Phase 3 note), but it's
+      no longer needed: the length now comes from Jellyfin.
+- [ ] Seeking (BASS opens URLs with `BASS_STREAM_BLOCK`) — more noticeable now that these
+      look like normal tracks.
+- [ ] Search is on the UI thread; slow servers freeze the dialog until the timeout.
+- [ ] Composer isn't filled (Jellyfin has it under `People`, not a plain field).
+- [ ] Entries when logged out or the server is gone: currently kept, fail at play time
+      with a clear log message. Probably fine.
 - [ ] Album art: fetch `/Items/<id>/Images/Primary` on play, or cache.
-- [ ] Report playback back to the server (`/Sessions/Playing`, `…/Stopped`) so play
-      counts / "continue listening" work in Jellyfin. Nice to have.
-
+- [ ] Report playback to the server (`/Sessions/Playing`, `…/Stopped`). Nice to have.
+- [ ] Later: B (sync everything + refresh), reusing `AddToLibrary`.
 ## Housekeeping (whenever)
 
 - [ ] Remove `Jellyfin_Plugin.aps` from git and add `*.aps` to `.gitignore`.

@@ -30,6 +30,7 @@
 #include "IPlaylist.h"
 #include "MediaLibraryPlaylistEntry.h"
 #include "ImportExportManager.h"
+#include "ITuniacServicePlugin.h"
 
 #define BEGIN_ADD_UNKNOWNNUMBER		(-1)
 
@@ -94,6 +95,7 @@ public:
 	bool					BeginAdd(unsigned long ulNumItems);
 	bool					EndAdd(void);
 	bool					AddItem(LPTSTR szItemToAdd, bool bForceDuplicateCheck);
+	unsigned long			AddServiceTracks(ServiceTrack * pTracks, unsigned long ulCount);
 	bool					RemoveEntry(IPlaylistEntry *			pIPE);
 	bool					RemoveEntryID(unsigned long ulEntryID);
 

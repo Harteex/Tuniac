@@ -112,8 +112,9 @@ services, rather than as a hardcoded special case.
 Status: the plugin type works end to end. The Jellyfin plugin logs in and out from its
 Configure dialog, and library entries holding `jellyfin://<serverid>/<itemid>` links play:
 `CCoreAudio::SetSource` asks `CServicePluginManager` to resolve them into an authenticated
-stream URL for BASS. What's missing is a way to get songs into the library other than
-typing links (File → Import Stream…) — Phase 4 in [docs/plan.md](docs/plan.md).
+stream URL for BASS. File → Import from Jellyfin… searches the server for tracks and albums
+and adds them to the library through `ITuniacServicePluginHelper::AddToLibrary`. Remaining
+Phase 4 items (seeking, non-blocking search, album art, sync) are in [docs/plan.md](docs/plan.md).
 
 [docs/plan.md](docs/plan.md) is the live checklist. [docs/service-plugins.md](docs/service-plugins.md)
 is the original analysis, a snapshot as of `64b8b8c` — useful background, but several of its

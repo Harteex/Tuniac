@@ -296,6 +296,55 @@ void			CServicePluginManager::SourceFailed(LPCTSTR szSource)
 	}
 }
 
+unsigned long	CServicePluginManager::AddToLibrary(ServiceTrack* pTracks, unsigned long ulCount)
+{
+	if (pTracks == NULL || ulCount == 0)
+		return 0;
+
+	return tuniacApp.m_MediaLibrary.AddServiceTracks(pTracks, ulCount);
+}
+
+void			CServicePluginManager::UpdateImportMenu(HMENU hFileMenu, UINT uInsertAfterID)
+{
+	// Plugins can be enabled and disabled at any time, so rebuild the items each time the menu opens
+	for (UINT uID = SERVICEMENU_BASE; uID < SERVICEMENU_BASE + 100; uID++)
+		DeleteMenu(hFileMenu, uID, MF_BYCOMMAND);
+
+	int iInsertPos = -1;
+	for (int i = 0; i < GetMenuItemCount(hFileMenu); i++)
+	{
+		if (GetMenuItemID(hFileMenu, i) == uInsertAfterID)
+		{
+			iInsertPos = i + 1;
+			break;
+		}
+	}
+	if (iInsertPos < 0)
+		return;
+
+	for (unsigned long x = 0; x < m_PluginArray.GetCount() && x < 100; x++)
+	{
+		if (m_PluginArray[x].pPlugin == NULL || !(m_PluginArray[x].ulFlags & SERVICEPLUGINFLAGS_IMPORT))
+			continue;
+
+		TCHAR szItem[128];
+		StringCchPrintf(szItem, 128, TEXT("Import from %s..."), m_PluginArray[x].szName);
+		InsertMenu(hFileMenu, iInsertPos++, MF_BYPOSITION | MF_STRING, SERVICEMENU_BASE + x, szItem);
+	}
+}
+
+bool			CServicePluginManager::HandleImportMenuCommand(HWND hWnd, WORD wCmdID)
+{
+	if (wCmdID < SERVICEMENU_BASE || wCmdID >= SERVICEMENU_BASE + 100)
+		return false;
+
+	unsigned long x = wCmdID - SERVICEMENU_BASE;
+	if (x < m_PluginArray.GetCount() && m_PluginArray[x].pPlugin != NULL && (m_PluginArray[x].ulFlags & SERVICEPLUGINFLAGS_IMPORT))
+		m_PluginArray[x].pPlugin->Import(hWnd);
+
+	return true;
+}
+
 void			CServicePluginManager::LogMessage(LPTSTR szModuleName, LPTSTR szMessage)
 {
 	if (tuniacApp.m_LogWindow)

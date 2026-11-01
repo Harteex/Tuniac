@@ -28,6 +28,13 @@
 #include "stdafx.h"
 #include "baseplaylist.h"
 
+// For "skip streams": radio-style streams have no fixed length. Tracks from service plugins
+// (jellyfin://...) are URLs too, but they have a length and should play in shuffle like files.
+static bool IsSkippableStream(IPlaylistEntry * pIPE)
+{
+	return PathIsURL((LPTSTR)pIPE->GetField(FIELD_URL)) && (unsigned long)(ULONG_PTR)pIPE->GetField(FIELD_PLAYBACKTIME) == LENGTH_STREAM;
+}
+
 CBasePlaylist::CBasePlaylist(void)
 {
 	m_ActiveRealIndex	= INVALID_PLAYLIST_INDEX;
@@ -371,7 +378,7 @@ unsigned long		CBasePlaylist::Previous(void)
 				IPlaylistEntry * pIPE = GetEntryAtFilteredIndex(x);
 				if(pIPE)
 				{
-					if(!PathIsURL((LPTSTR)pIPE->GetField(FIELD_URL)))
+					if(!IsSkippableStream(pIPE))
 					return x;
 				}
 			}
@@ -390,7 +397,7 @@ unsigned long		CBasePlaylist::Previous(void)
 			IPlaylistEntry * pIPE = GetEntryAtFilteredIndex(x-1);
 			if(pIPE)
 			{
-				if(!PathIsURL((LPTSTR)pIPE->GetField(FIELD_URL)))
+				if(!IsSkippableStream(pIPE))
 					return x-1;
 			}
 		}
@@ -402,7 +409,7 @@ unsigned long		CBasePlaylist::Previous(void)
 				IPlaylistEntry * pIPE = GetEntryAtFilteredIndex(x-1);
 				if(pIPE)
 				{
-					if(!PathIsURL((LPTSTR)pIPE->GetField(FIELD_URL)))
+					if(!IsSkippableStream(pIPE))
 						return x-1;
 				}
 			}
@@ -472,7 +479,7 @@ unsigned long		CBasePlaylist::Next(void)
 				IPlaylistEntry * pIPE = GetEntryAtFilteredIndex(x);
 				if(pIPE)
 				{
-					if(!PathIsURL((LPTSTR)pIPE->GetField(FIELD_URL)))
+					if(!IsSkippableStream(pIPE))
 					return x;
 				}
 			}
@@ -493,7 +500,7 @@ unsigned long		CBasePlaylist::Next(void)
 			IPlaylistEntry * pIPE = GetEntryAtFilteredIndex(x);
 			if(pIPE)
 			{
-				if(!PathIsURL((LPTSTR)pIPE->GetField(FIELD_URL)))
+				if(!IsSkippableStream(pIPE))
 					return x;
 			}
 		}
@@ -505,7 +512,7 @@ unsigned long		CBasePlaylist::Next(void)
 				IPlaylistEntry * pIPE = GetEntryAtFilteredIndex(x);
 				if(pIPE)
 				{
-					if(!PathIsURL((LPTSTR)pIPE->GetField(FIELD_URL)))
+					if(!IsSkippableStream(pIPE))
 						return x;
 				}
 			}
@@ -566,7 +573,7 @@ unsigned long		CBasePlaylist::GetNextFilteredIndexForFilteredIndex(unsigned long
 			IPlaylistEntry * pIPE = GetEntryAtFilteredIndex(x);
 			if(pIPE)
 			{
-				if(!PathIsURL((LPTSTR)pIPE->GetField(FIELD_URL)))
+				if(!IsSkippableStream(pIPE))
 					return x;
 			}
 		}
@@ -578,7 +585,7 @@ unsigned long		CBasePlaylist::GetNextFilteredIndexForFilteredIndex(unsigned long
 				IPlaylistEntry * pIPE = GetEntryAtFilteredIndex(x);
 				if(pIPE)
 				{
-					if(!PathIsURL((LPTSTR)pIPE->GetField(FIELD_URL)))
+					if(!IsSkippableStream(pIPE))
 						return x;
 				}
 			}

@@ -865,6 +865,14 @@ LRESULT CALLBACK CTuniacApp::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPA
 			}
 			break;
 
+			//add "Import from <service>..." items to the file menu
+		case WM_INITMENUPOPUP:
+			{
+				if((HMENU)wParam == GetSubMenu(m_hPopupMenu, 0))
+					m_ServicePluginManager.UpdateImportMenu((HMENU)wParam, ID_FILE_ADDOTHER);
+			}
+			break;
+
 			//set menu
 		case WM_MENUSELECT:
 			{
@@ -1646,6 +1654,10 @@ LRESULT CALLBACK CTuniacApp::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPA
 
 						return 0;
 					}
+
+					//clicked file -> import from <service>
+					if(m_ServicePluginManager.HandleImportMenuCommand(hWnd, wCmdID))
+						return 0;
 
 					//clicked to set another playlist active
 					if(wCmdID >= PLAYLISTMENU_BASE && wCmdID <= (PLAYLISTMENU_BASE + m_PlaylistManager.GetNumPlaylists()))

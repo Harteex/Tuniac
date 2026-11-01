@@ -344,6 +344,70 @@ bool CMediaLibrary::AddStreamToLibrary(LPTSTR szURL)
 	return true;
 }
 
+// Tracks from a service plugin (e.g. Jellyfin). They're links with metadata the service already
+// knows, so they're stored as given rather than read by the info managers, and unlike streams
+// they don't go into the "Streams" playlist.
+unsigned long CMediaLibrary::AddServiceTracks(ServiceTrack * pTracks, unsigned long ulCount)
+{
+	unsigned long ulAdded = 0;
+
+	for(unsigned long x = 0; x < ulCount; x++)
+	{
+		ServiceTrack * pTrack = &pTracks[x];
+
+		if(pTrack->szURL[0] == TEXT('\0') || GetEntryByURL(pTrack->szURL))
+			continue;
+
+		while(GetEntryByEntryID(m_ulEntryID))
+		{
+			m_ulEntryID++;
+		}
+
+		LibraryEntry  libraryEntry;
+		ZeroMemory(&libraryEntry, sizeof(LibraryEntry));
+
+		StringCchCopy(libraryEntry.szURL,			MAX_PATH,	pTrack->szURL);
+		StringCchCopy(libraryEntry.szTitle,			128,		pTrack->szTitle);
+		StringCchCopy(libraryEntry.szArtist,		128,		pTrack->szArtist);
+		StringCchCopy(libraryEntry.szAlbum,			128,		pTrack->szAlbum);
+		StringCchCopy(libraryEntry.szAlbumArtist,	128,		pTrack->szAlbumArtist);
+		StringCchCopy(libraryEntry.szGenre,			128,		pTrack->szGenre);
+		StringCchCopy(libraryEntry.szComposer,		128,		pTrack->szComposer);
+		StringCchCopy(libraryEntry.szFileType,		16,			pTrack->szFileType);
+
+		libraryEntry.ulYear				= pTrack->ulYear;
+		libraryEntry.dwTrack[0]			= pTrack->usTrack[0];
+		libraryEntry.dwTrack[1]			= pTrack->usTrack[1];
+		libraryEntry.dwDisc[0]			= pTrack->usDisc[0];
+		libraryEntry.dwDisc[1]			= pTrack->usDisc[1];
+		libraryEntry.ulPlaybackTime		= pTrack->ulPlaybackTimeMS ? pTrack->ulPlaybackTimeMS : LENGTH_UNKNOWN;
+		libraryEntry.ulBitRate			= pTrack->ulBitRate ? pTrack->ulBitRate : BITRATE_UNKNOWN;
+		libraryEntry.ulSampleRate		= pTrack->ulSampleRate;
+		libraryEntry.ulChannels			= pTrack->ulChannels;
+		libraryEntry.ulBitsPerSample	= pTrack->ulBitsPerSample;
+
+		libraryEntry.ulKind				= ENTRY_KIND_URL;
+		libraryEntry.ulAvailability		= AVAILABLILITY_AVAILABLE;
+		GetLocalTime(&libraryEntry.stDateAdded);
+
+		CMediaLibraryPlaylistEntry * pIPE = new CMediaLibraryPlaylistEntry(&libraryEntry);
+		pIPE->SetEntryID(m_ulEntryID);
+		m_MediaLibrary.AddTail(pIPE);
+
+		m_ulEntryID++;
+		ulAdded++;
+	}
+
+	if(ulAdded)
+	{
+		tuniacApp.m_PlaylistManager.m_LibraryPlaylist.RebuildPlaylist();
+		tuniacApp.m_PlaylistManager.m_LibraryPlaylist.ApplyFilter();
+		tuniacApp.m_SourceSelectorWindow->UpdateView();
+	}
+
+	return ulAdded;
+}
+
 bool CMediaLibrary::AddFileToLibrary(LPTSTR szURL)
 {
 	if (m_bForceDuplicateCheck)

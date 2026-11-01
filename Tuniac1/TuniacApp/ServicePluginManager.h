@@ -54,4 +54,10 @@ public:
 	bool			PreferencesGet(LPCTSTR szSubKey, LPCTSTR lpValueName, LPDWORD lpType, LPBYTE lpData, LPDWORD lpcbData);
 	bool			PreferencesSet(LPCTSTR szSubKey, LPCTSTR lpValueName, DWORD dwType, const BYTE* lpData, DWORD cbData);
 
+	unsigned long	AddToLibrary(ServiceTrack* pTracks, unsigned long ulCount);
+
+	// File menu: one "Import from <name>..." item per enabled plugin that supports it
+	void			UpdateImportMenu(HMENU hFileMenu, UINT uInsertAfterID);
+	bool			HandleImportMenuCommand(HWND hWnd, WORD wCmdID);
+
 };

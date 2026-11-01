@@ -195,8 +195,10 @@ inside Tuniac**, i.e. the File menu item and `AddServiceTracks` themselves.
 
 ### Next / open
 
-- [ ] Try in Tuniac: import, play, shuffle, restart (library persistence), import again
+- [x] Try in Tuniac: import, play, shuffle, restart (library persistence), import again
       (duplicates skipped).
+- [x] Restart re-selected the first track instead of the last-played Jellyfin one: service
+      plugins were loaded after the playlists were restored. Now loaded first (`fdb1a25`).
 - [ ] Track length from the decoder still doesn't reach the entry (Phase 3 note), but it's
       no longer needed: the length now comes from Jellyfin.
 - [ ] Seeking (BASS opens URLs with `BASS_STREAM_BLOCK`) — more noticeable now that these
@@ -208,6 +210,29 @@ inside Tuniac**, i.e. the File menu item and `AddServiceTracks` themselves.
 - [ ] Album art: fetch `/Items/<id>/Images/Primary` on play, or cache.
 - [ ] Report playback to the server (`/Sessions/Playing`, `…/Stopped`). Nice to have.
 - [ ] Later: B (sync everything + refresh), reusing `AddToLibrary`.
+
+## Standalone — Don't open the restored song at startup
+
+At startup the last active entry is restored with `PlayEntry(…, bStart=false)`
+(`PlaylistManager.cpp`, the restore blocks around the `PLDH.ActiveIndex` checks). That opens
+the file or stream just to select it: a network request for Jellyfin entries and radio
+streams, a startup delay when the server is down, and the selection falls back to the first
+track if opening fails. It also adds the song to history and updates the queue.
+
+Play already handles a song that isn't loaded: `ID_PLAYBACK_PLAY` falls back to
+`PlayEntry(active entry, true, …)` when `CCoreAudio::Play()` fails. So startup only needs to
+select the entry and load its art.
+
+- [ ] Small helper that sets the active entry and loads album art without opening it; use
+      it in the restore blocks in `PlaylistManager.cpp` instead of `PlayEntry`.
+- [ ] Play controls show nothing for length/position until playing — show the library's
+      `FIELD_PLAYBACKTIME` while nothing is loaded.
+- [ ] Accept: seeking while stopped does nothing until Play; missing files are noticed at
+      Play rather than at startup; startup no longer adds a history entry.
+- [ ] Test with a local file, a radio stream and a Jellyfin entry (server up and down).
+
+Estimate: 30–60 lines.
+
 ## Housekeeping (whenever)
 
 - [ ] Remove `Jellyfin_Plugin.aps` from git and add `*.aps` to `.gitignore`.

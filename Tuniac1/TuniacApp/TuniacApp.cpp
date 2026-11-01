@@ -188,6 +188,10 @@ bool CTuniacApp::Initialize(HINSTANCE hInstance, LPTSTR szCommandLine)
 		}
 	}
 
+	//service plugins first: restoring the active playlist entry loads it, which may need a plugin to resolve its link
+	if (!m_ServicePluginManager.Initialize())
+		return false;
+
 	if(!m_MediaLibrary.Initialize(m_szLibraryFolder))
 		return false;
 
@@ -261,9 +265,6 @@ bool CTuniacApp::Initialize(HINSTANCE hInstance, LPTSTR szCommandLine)
 		return false;
 
 	if(!m_PluginManager.Initialize())
-		return false;
-
-	if (!m_ServicePluginManager.Initialize())
 		return false;
 
 	//create tray menu

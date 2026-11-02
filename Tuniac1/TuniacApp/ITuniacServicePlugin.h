@@ -24,6 +24,8 @@ typedef struct
 	unsigned long		ulBitsPerSample;
 } ServiceTrack;
 
+class ITuniacServicePlugin;
+
 class ITuniacServicePluginHelper
 {
 public:
@@ -38,6 +40,11 @@ public:
 	// Add tracks to the media library. Links already in the library are skipped. Returns how
 	// many were added.
 	virtual unsigned long	AddToLibrary(ServiceTrack* pTracks, unsigned long ulCount) = 0;
+
+	// The service rejected the stored login. The host tells the user (szMessage) and offers to
+	// open pPlugin's Configure dialog. Safe to call before the main window exists; only one
+	// notice is shown at a time.
+	virtual void			LoginExpired(ITuniacServicePlugin* pPlugin, LPCTSTR szMessage) = 0;
 };
 
 

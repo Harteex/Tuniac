@@ -51,6 +51,7 @@ protected:
 	void					LoadServer(LPCTSTR szServerId);
 	void					SaveServer(void);
 	bool					GetServerLogin(LPCTSTR szServerId, LPTSTR szUrl, size_t cchUrl, LPTSTR szToken, size_t cchToken);
+	void					ForgetLogin(LPCTSTR szServerId);
 
 	bool					GetPrefString(LPCTSTR szSubKey, LPCTSTR szName, LPTSTR szDest, size_t cchDest);
 	bool					SetPrefString(LPCTSTR szSubKey, LPCTSTR szName, LPCTSTR szValue);

@@ -207,6 +207,12 @@ inside Tuniac**, i.e. the File menu item and `AddServiceTracks` themselves.
 - [ ] Composer isn't filled (Jellyfin has it under `People`, not a plain field).
 - [ ] Entries when logged out or the server is gone: currently kept, fail at play time
       with a clear log message. Probably fine.
+- [x] Notice when the login has expired or was revoked ("Log in again now?" → Configure):
+      shown when playback or the import search is rejected, then the token is forgotten.
+      No check at startup, to keep startup fast. Note: Jellyfin serves
+      `/Audio/<id>/stream` without checking the token (verified on the demo server), so
+      playback with a revoked token usually still works and the notice mostly comes from
+      import.
 - [ ] Album art: fetch `/Items/<id>/Images/Primary` on play, or cache.
 - [ ] Report playback to the server (`/Sessions/Playing`, `…/Stopped`). Nice to have.
 - [ ] Later: B (sync everything + refresh), reusing `AddToLibrary`.

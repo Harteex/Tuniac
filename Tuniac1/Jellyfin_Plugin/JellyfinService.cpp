@@ -605,6 +605,25 @@ bool			CJellyfinService::GetServerLogin(LPCTSTR szServerId, LPTSTR szUrl, size_t
 	return szUrl[0] != TEXT('\0') && szToken[0] != TEXT('\0');
 }
 
+// The server rejected this server's token: drop it, keeping the URL and user for logging in again
+void			CJellyfinService::ForgetLogin(LPCTSTR szServerId)
+{
+	if (!IsSafeId(szServerId))
+		return;
+
+	if (StrCmpI(szServerId, m_szServerId) == 0)
+	{
+		m_szToken[0] = TEXT('\0');
+		SaveServer();
+	}
+	else
+	{
+		TCHAR szSubKey[128];
+		StringCchPrintf(szSubKey, 128, TEXT("%s\\Servers\\%s"), JELLYFIN_PREFS_KEY, szServerId);
+		SetPrefString(szSubKey, TEXT("Token"), TEXT(""));
+	}
+}
+
 // playback
 
 // jellyfin://<ServerId>/<ItemId>; both buffers 64 characters
@@ -653,6 +672,14 @@ void			CJellyfinService::SourceFailed(LPCTSTR szSource)
 	if (result == JELLYFIN_ERROR_UNAUTHORIZED)
 	{
 		SetError(TEXT("Can't play %s: the login to %s has expired or was revoked. Log in again from the plugin's Configure dialog."), szSource, szUrl);
+
+		// Forget the token so the next tracks fail at once instead of each asking the server, and
+		// tell the user once
+		ForgetLogin(szServerId);
+
+		TCHAR szNotice[512];
+		StringCchPrintf(szNotice, 512, TEXT("The Jellyfin login to %s has expired or was revoked, so its tracks can't be played."), szUrl);
+		m_pHelper->LoginExpired(this, szNotice);
 	}
 	else if (result == JELLYFIN_OK)
 	{
@@ -1315,6 +1342,22 @@ void			CJellyfinService::SearchAndShow(HWND hDlg)
 		delete m_pSearchResults;
 		m_pSearchResults = NULL;
 		SetImportBusy(hDlg, false, m_szLastError);
+
+		// Same notice as for playback, but asked here since this dialog is in front
+		if (result == JELLYFIN_ERROR_UNAUTHORIZED)
+		{
+			ForgetLogin(m_szServerId);
+
+			TCHAR szNotice[512];
+			StringCchPrintf(szNotice, 512, TEXT("The Jellyfin login to %s has expired or was revoked.\r\n\r\nLog in again now?"), m_szServerUrl);
+			if (MessageBox(hDlg, szNotice, TEXT("Jellyfin"), MB_YESNO | MB_ICONWARNING) == IDYES)
+				Configure(hDlg);
+
+			if (!IsLoggedIn())
+				EndDialog(hDlg, 0);
+			else
+				SetDlgItemText(hDlg, IDC_JF_IMPORTSTATUS, TEXT("Logged in again. Search again to continue."));
+		}
 		return;
 	}
 

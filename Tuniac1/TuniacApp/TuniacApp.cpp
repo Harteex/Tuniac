@@ -347,6 +347,8 @@ bool CTuniacApp::Initialize(HINSTANCE hInstance, LPTSTR szCommandLine)
 
 	//notify that before we created the playlist window
 	PostMessage(m_hWnd, WM_APP, NOTIFY_PLAYLISTSCHANGED, 0);
+	//a service may have rejected its login while the last song was restored, before there was a window
+	PostMessage(m_hWnd, WM_APP, NOTIFY_SERVICENOTICE, 0);
 
 	WTSRegisterSessionNotification(m_hWnd, NOTIFY_FOR_THIS_SESSION);
 	SetTimer(m_hWnd, SYSEVENTS_TIMERID, 5000, NULL);
@@ -1232,6 +1234,12 @@ LRESULT CALLBACK CTuniacApp::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPA
 						break;
 
 					//playlistmanager changed it's view
+					case NOTIFY_SERVICENOTICE:
+						{
+							m_ServicePluginManager.ShowPendingNotice(hWnd);
+						}
+						break;
+
 					case NOTIFY_PLAYLISTSCHANGED:
 						{
 							HMENU tMenu = GetSubMenu(m_TrayMenu, 12);

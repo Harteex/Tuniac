@@ -20,6 +20,11 @@ protected:
 	Array<ServicePluginEntry, 3>	m_PluginArray;
 	TCHAR							m_PluginPath[MAX_PATH];
 
+	// LoginExpired notice waiting to be shown, or being shown
+	ITuniacServicePlugin*			m_pNoticePlugin;
+	TCHAR							m_szNotice[512];
+	bool							m_bNoticeShowing;
+
 public:
 	CServicePluginManager(void);
 	~CServicePluginManager(void);
@@ -55,6 +60,10 @@ public:
 	bool			PreferencesSet(LPCTSTR szSubKey, LPCTSTR lpValueName, DWORD dwType, const BYTE* lpData, DWORD cbData);
 
 	unsigned long	AddToLibrary(ServiceTrack* pTracks, unsigned long ulCount);
+	void			LoginExpired(ITuniacServicePlugin* pPlugin, LPCTSTR szMessage);
+
+	// Show a pending LoginExpired notice; the main window calls this on NOTIFY_SERVICENOTICE
+	void			ShowPendingNotice(HWND hWnd);
 
 	// File menu: one "Import from <name>..." item per enabled plugin that supports it
 	void			UpdateImportMenu(HMENU hFileMenu, UINT uInsertAfterID);

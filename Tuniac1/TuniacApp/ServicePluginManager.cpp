@@ -3,6 +3,9 @@
 
 CServicePluginManager::CServicePluginManager(void)
 {
+	m_pNoticePlugin = NULL;
+	m_szNotice[0] = TEXT('\0');
+	m_bNoticeShowing = false;
 }
 
 CServicePluginManager::~CServicePluginManager(void)
@@ -302,6 +305,49 @@ unsigned long	CServicePluginManager::AddToLibrary(ServiceTrack* pTracks, unsigne
 		return 0;
 
 	return tuniacApp.m_MediaLibrary.AddServiceTracks(pTracks, ulCount);
+}
+
+void			CServicePluginManager::LoginExpired(ITuniacServicePlugin* pPlugin, LPCTSTR szMessage)
+{
+	if (pPlugin == NULL || szMessage == NULL || m_pNoticePlugin != NULL)
+		return;
+
+	m_pNoticePlugin = pPlugin;
+	StringCchCopy(m_szNotice, 512, szMessage);
+
+	// Shown from the message loop rather than here, as this usually runs in the middle of starting
+	// playback. At startup there is no window yet; Initialize posts it once there is.
+	if (tuniacApp.getMainWindow())
+		PostMessage(tuniacApp.getMainWindow(), WM_APP, NOTIFY_SERVICENOTICE, 0);
+}
+
+void			CServicePluginManager::ShowPendingNotice(HWND hWnd)
+{
+	if (m_pNoticePlugin == NULL || m_bNoticeShowing)
+		return;
+
+	// The plugin may have been disabled since
+	unsigned long x;
+	for (x = 0; x < m_PluginArray.GetCount(); x++)
+	{
+		if (m_PluginArray[x].pPlugin == m_pNoticePlugin)
+			break;
+	}
+
+	if (x < m_PluginArray.GetCount())
+	{
+		TCHAR szText[600];
+		StringCchPrintf(szText, 600, TEXT("%s\r\n\r\nLog in again now?"), m_szNotice);
+
+		m_bNoticeShowing = true;
+		int iAnswer = MessageBox(hWnd, szText, m_PluginArray[x].szName, MB_YESNO | MB_ICONWARNING);
+		if (iAnswer == IDYES && m_PluginArray[x].pPlugin == m_pNoticePlugin && (m_PluginArray[x].ulFlags & SERVICEPLUGINFLAGS_CONFIG))
+			m_pNoticePlugin->Configure(hWnd);
+		m_bNoticeShowing = false;
+	}
+
+	m_pNoticePlugin = NULL;
+	m_szNotice[0] = TEXT('\0');
 }
 
 void			CServicePluginManager::UpdateImportMenu(HMENU hFileMenu, UINT uInsertAfterID)

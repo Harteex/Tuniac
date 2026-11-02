@@ -239,6 +239,23 @@ select the entry and load its art.
 
 Estimate: 30–60 lines.
 
+## Later — Multiple servers, all the way through
+
+The data model already handles several servers: links carry the ServerId, each server's
+URL, user and token are stored under `services\Jellyfin\Servers\<ServerId>`, and playback
+(`GetServerLogin`) and `ForgetLogin` work for any stored server. Logging in to a new server
+makes it active but keeps the others' tokens, so their tracks keep playing.
+
+Everything user-facing still assumes one "active" server:
+
+- [ ] Configure dialog shows and edits only the active server. No list of servers, no way
+      to switch between them, log out of or remove a non-active one.
+- [ ] `Logout` and `ValidateSession` only act on the active server.
+- [ ] Import searches only the active server; no server picker in the import dialog.
+- [ ] The login-expired notice for a non-active server opens Configure with the active
+      server filled in.
+- [ ] "Allow untrusted certificates" is one global setting, not per server.
+
 ## Housekeeping (whenever)
 
 - [ ] Remove `Jellyfin_Plugin.aps` from git and add `*.aps` to `.gitignore`.

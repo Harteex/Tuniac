@@ -1,3 +1,78 @@
+Aug, 2026
+---------
+-Improve move/resizing window to keep Tuniac on screen at launch
+-Update BASS OPUS, MIDI, FLAC, APE
+
+Jan, 2026
+---------
+-Enable single selection for source selector
+-Update BASS 2.4.18.3 and addons DSD, HLS, OPUS
+-Rename right click menu items: "To new Playlist" is now "Selected to new playlist" , "Filter by field" is now "Field to new playlist"
+-Update view after right click "Selected to new playlist"
+-Add simplewebp album art decoder
+
+Nov, 2025
+---------
+-Update to BASS 2.4.18
+-Update BASS aac, ac3, flac, hls addons
+
+Jul, 2025
+---------
+-Add GOOM visual
+-Fix a string memory overflow
+-Update XAudio to 1.2.13
+
+Feb, 2025
+---------
+-Update BASS alac, ape, cd, midi, opus, tak
+-Update GLEW to 2.2.0
+-Update taglib, libspng, libjpeg-turbo
+-Build setup with inno 6.4.1
+
+Apr, 2024
+---------
+-Add BASS microphone infomanager and decoder
+-Add Microphone input source view and playlist
+-Allow muting output of audio engine
+-Correct usage of bitrate vs bitdepth
+-Fix crash when deleting playlists and returning to Mic or CD source view
+
+Mar, 2024
+---------
+-Set DPI mode to system enhanced
+-Update Libspng, Taglib, BASS wv/flac/hls
+-Visual allow 144 FPS
+
+Dec, 2023
+---------
+-Fix svp opengl crash on Intel GPU
+-Update Xaudio 2.9 nuget to 1.2.11
+
+Jul, 2023
+---------
+-update Taglib
+-update BASS aac,adx,alac,hls, opus, wma
+-update VS redist
+
+Dec, 2022
+---------
+-Fix running VS redist installer during Tuniac install
+-Update XAudio to 1.2.10
+-Update BASS flac, dsd, wv
+-Use permalink to vs redist
+
+May, 2022
+---------
+-update kissfft
+-bass midi
+
+Apr, 2022
+---------
+-Swap from libpng to libspng
+-bass ape, flac and cd update
+-zlib, taglib, libjpeg-turbo update
+
+
 Jan, 2022
 ---------
 -Move from XAudio 2.7 to XAudio 2.9. Min OS support is now Windows 7 SP1

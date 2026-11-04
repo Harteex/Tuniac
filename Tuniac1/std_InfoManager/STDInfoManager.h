@@ -10,10 +10,12 @@
 
 #include "asffile.h"
 
-/* taglib2
+
 #include "dsffile.h"
 
+/* taglib2
 #include "ebmlfile.h"
+#include "matroskafile.h"
 */
 
 #include "flacFile.h"
@@ -54,6 +56,8 @@
 
 #include "xmFile.h"
 
+#include "shortenfile.h"
+
 
 class CSTDInfoManager :
 	public IInfoManager
@@ -78,9 +82,11 @@ protected:
 	TagLib::Mod::File *modFile;
 	TagLib::S3M::File *s3mFile;
 	TagLib::XM::File *xmFile;
-	/* taglib2
 	TagLib::DSF::File *dsfFile;
+	TagLib::Shorten::File *shnFile;
+	/* taglib2
 	TagLib::EBML::File *ebmlFile;
+	TagLib::Matroska::File *matroskaFile;
 	*/
 
 public:

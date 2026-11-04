@@ -183,12 +183,8 @@ LRESULT CALLBACK CTuniacVisual::WndProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPA
 
 void	CTuniacVisual::Destroy(void)
 {
-	if(Samples)
-	{
-		//VirtualFree(Samples, 0, MEM_RELEASE);
-		_aligned_free(Samples);
-		Samples = NULL;
-	}
+	Detach();
+
 	delete this;
 }
 
@@ -215,6 +211,7 @@ bool	CTuniacVisual::Attach(HDC hDC)
 
 	m_glRC = NULL;
 	m_glDC = hDC;
+
 
 	GLuint		PixelFormat;
 
@@ -272,21 +269,27 @@ bool	CTuniacVisual::Attach(HDC hDC)
 	m_pHelper->GetVisualPref(TEXT("TuniacVisual"), TEXT("ShiftRate"), &lpRegType, (LPBYTE)&fShiftRate, &dwRegSize);
 	m_pHelper->GetVisualPref(TEXT("TuniacVisual"), TEXT("ClearRate"), &lpRegType, (LPBYTE)&fClearRate, &dwRegSize);
 
+	glFinish();
 	SwapBuffers(m_glDC);
+
 
 	return true;
 }
 
 bool	CTuniacVisual::Detach()
 {
-	//flush
-	SwapBuffers(m_glDC);
-
-	if (m_glRC)
+	if (wglGetCurrentContext())
 	{
-		wglMakeCurrent(NULL, NULL);
-		wglDeleteContext(m_glRC);
-		m_glRC=NULL;
+		//flush
+		glFinish();
+		SwapBuffers(m_glDC);
+
+		if (m_glRC)
+		{
+			wglMakeCurrent(NULL, NULL);
+			wglDeleteContext(m_glRC);
+			m_glRC = NULL;
+		}
 	}
 
 	m_glDC = NULL;

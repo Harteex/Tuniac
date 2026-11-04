@@ -39,13 +39,20 @@ VOID CALLBACK TimerRoutine(PVOID lpParam, BOOL TimerOrWaitFired)
 	SetEvent(m_hRenderEvent);
 }
 
-CVisualWindow::CVisualWindow(void) :
-	m_hWnd (NULL),
-	m_hThread (NULL),
-	m_WindowDC(NULL),
-	m_iActivePlugin(-1),
-	m_bFullScreen(false)
+CVisualWindow::CVisualWindow(void)
 {
+	m_hWnd = NULL;
+	m_hThread = NULL;
+	m_WindowDC = NULL;
+	m_iActivePlugin = -1;
+	m_bFullScreen = false;
+
+	m_OldSize = { 0,0 };
+	m_hParentWnd = NULL;
+	m_dwThreadID = 0;
+	m_ContextMenu = NULL;
+	hTimer = 0;
+	hTimerQueue = NULL;
 }
 
 CVisualWindow::~CVisualWindow(void)
@@ -68,7 +75,10 @@ void			CVisualWindow::Destroy(void)
 {
 	while(m_VisualArray.GetCount())
 	{
-		m_VisualArray[0].pPlugin->Destroy();
+		if (m_VisualArray[0].pPlugin)
+		{
+			m_VisualArray[0].pPlugin->Destroy();
+		}
 		if(m_VisualArray[0].hInst)
 			FreeLibrary(m_VisualArray[0].hInst);
 
@@ -266,7 +276,7 @@ bool			CVisualWindow::CreatePluginWindow(HWND hParent, HINSTANCE hInstance)
 
 bool			CVisualWindow::DestroyPluginWindow(void)
 {
-
+	CAutoLock m(&m_RenderLock);
 
 	if(m_hThread)
 	{
@@ -437,26 +447,29 @@ LRESULT CALLBACK CVisualWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, 
 				CheckMenuRadioItem(GetSubMenu(GetSubMenu(m_ContextMenu, 0), 0), 0, m_VisualArray.GetCount(), m_iActivePlugin, MF_BYPOSITION);
 
 				CheckMenuItem(GetSubMenu(m_ContextMenu, 0), 1, m_bFullScreen == true ? MF_BYPOSITION | MF_CHECKED : MF_BYPOSITION | MF_UNCHECKED);
+				if (m_VisualArray[m_iActivePlugin].pPlugin)
+				{
+					if (m_VisualArray[m_iActivePlugin].pPlugin->GetFlags() & PLUGINFLAGS_CONFIG)
+					{
+						EnableMenuItem(GetSubMenu(m_ContextMenu, 0), 3, MF_BYPOSITION | MF_ENABLED);
+					}
+					else
+					{
+						EnableMenuItem(GetSubMenu(m_ContextMenu, 0), 3, MF_BYPOSITION | MF_DISABLED | MF_GRAYED);
+					}
 
-				if(m_VisualArray[m_iActivePlugin].pPlugin->GetFlags() & PLUGINFLAGS_CONFIG)
-				{
-					EnableMenuItem(GetSubMenu(m_ContextMenu, 0), 3, MF_BYPOSITION | MF_ENABLED);
-				}
-				else
-				{
-					EnableMenuItem(GetSubMenu(m_ContextMenu, 0), 3, MF_BYPOSITION | MF_DISABLED | MF_GRAYED);
-				}
-
-				if(m_VisualArray[m_iActivePlugin].pPlugin->GetFlags() & PLUGINFLAGS_ABOUT)
-				{
-					EnableMenuItem(GetSubMenu(m_ContextMenu, 0), 4, MF_BYPOSITION | MF_ENABLED);
-				}
-				else
-				{
-					EnableMenuItem(GetSubMenu(m_ContextMenu, 0), 4, MF_BYPOSITION | MF_DISABLED | MF_GRAYED);
+					if (m_VisualArray[m_iActivePlugin].pPlugin->GetFlags() & PLUGINFLAGS_ABOUT)
+					{
+						EnableMenuItem(GetSubMenu(m_ContextMenu, 0), 4, MF_BYPOSITION | MF_ENABLED);
+					}
+					else
+					{
+						EnableMenuItem(GetSubMenu(m_ContextMenu, 0), 4, MF_BYPOSITION | MF_DISABLED | MF_GRAYED);
+					}
 				}
 
 				TrackPopupMenu(GetSubMenu(m_ContextMenu, 0), 0, pt.x, pt.y, 0, hWnd, NULL);
+
 			}
 			break;
 
@@ -571,8 +584,13 @@ LRESULT CALLBACK CVisualWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, 
 				{
 					if(wParam == VK_ESCAPE)
 					{
-						if(tuniacApp.m_VisualWindow->GetFullscreen())
-							tuniacApp.m_VisualWindow->SetFullscreen(false);
+						if (tuniacApp.m_VisualWindow)
+						{
+							if (tuniacApp.m_VisualWindow->GetFullscreen())
+							{
+								tuniacApp.m_VisualWindow->SetFullscreen(false);
+							}
+						}
 					}
 				}
 				break;
@@ -631,7 +649,10 @@ unsigned long CVisualWindow::ThreadProc(void)
 						{
 							if(m_iActivePlugin != -1)
 							{
-								m_VisualArray[m_iActivePlugin].pPlugin->Detach();
+								if (m_VisualArray[m_iActivePlugin].pPlugin)
+								{
+									m_VisualArray[m_iActivePlugin].pPlugin->Detach();
+								}
 								m_iActivePlugin = -1;
 							}
 
@@ -646,15 +667,18 @@ unsigned long CVisualWindow::ThreadProc(void)
 							{
 								if(m_VisualArray.GetCount() > 0)
 								{
-									if(m_VisualArray[iPlugin].pPlugin->Attach(m_WindowDC))
+									if (m_VisualArray[iPlugin].pPlugin)
 									{
-										m_iActivePlugin = iPlugin;
-									}
-									//visual wont attach, revert to internal visual
-									else if(m_VisualArray[0].pPlugin->Attach(m_WindowDC))
-									{
-										m_iActivePlugin = 0;
-										tuniacApp.m_Preferences.SetCurrentVisual(0);
+										if (m_VisualArray[iPlugin].pPlugin->Attach(m_WindowDC))
+										{
+											m_iActivePlugin = iPlugin;
+										}
+										//visual wont attach, revert to internal visual
+										else if (m_VisualArray[0].pPlugin->Attach(m_WindowDC))
+										{
+											m_iActivePlugin = 0;
+											tuniacApp.m_Preferences.SetCurrentVisual(0);
+										}
 									}
 								}
 							}
@@ -677,7 +701,10 @@ unsigned long CVisualWindow::ThreadProc(void)
 				GetClientRect(m_hWnd, &r);
 				if(m_iActivePlugin != -1)
 				{
-					m_VisualArray[m_iActivePlugin].pPlugin->Render((int)r.right, (int)r.bottom);
+					if (m_VisualArray[m_iActivePlugin].pPlugin)
+					{
+						m_VisualArray[m_iActivePlugin].pPlugin->Render((int)r.right, (int)r.bottom);
+					}
 				}
 				else
 				{
@@ -686,9 +713,6 @@ unsigned long CVisualWindow::ThreadProc(void)
 			}
 
 			WaitForSingleObject(m_hRenderEvent, INFINITE);
-
-			//not accurate enough 10-16ms accuracy!!
-			//WaitForSingleObject(m_hRenderEvent, m_offsettimer.MSToSleepSinceLastCall(1000 / tuniacApp.m_Preferences.GetVisualFPS()));
 		}
 	}
 
@@ -697,7 +721,11 @@ unsigned long CVisualWindow::ThreadProc(void)
 
 unsigned long CVisualWindow::GetVisData(float * pWaveformData, unsigned long ulNumSamples)
 {
-	return CCoreAudio::Instance()->GetVisData(pWaveformData, ulNumSamples);
+	if (CCoreAudio::Instance())
+	{
+		return CCoreAudio::Instance()->GetVisData(pWaveformData, ulNumSamples);
+	}
+	return 0;
 }
 
 void *	CVisualWindow::GetVariable(Variable eVar)

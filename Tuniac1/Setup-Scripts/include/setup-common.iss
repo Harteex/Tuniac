@@ -4,22 +4,22 @@
 
 #define TuniacWWW 'http://tuni.ac'
 
-#define VC14RedistText 'Microsoft Visual C++ Redistributable 2019'
+#define VC14RedistText 'Microsoft Visual C++ Redistributable 2022'
 #define VC14RedistManual 'https://visualstudio.microsoft.com/downloads/?q=Redistributable'
 
-#define VC14x86Redist 'https://download.visualstudio.microsoft.com/download/pr/2250605e-e48f-43ed-ba6e-e0cc18bc530d/AC75A82D873E6B6F98B1D293042380764D7D263C43438E50D564FA58C9F891C2/VC_redist.x86.exe'
+#define VC14x86Redist 'https://aka.ms/vs/18/release/vc_redist.x86.exe'
 #define VC14x86RedistMIRROR 'http://tuni.ac/extra/Redist/VC_redist.x86.exe'
 #define VC14x86RedistdwMajor 14
-#define VC14x86RedistdwMinor 30
-#define VC14x86RedistdwBld 30704
+#define VC14x86RedistdwMinor 50
+#define VC14x86RedistdwBld 35719
 #define VC14x86RedistSize 14
 
-#define VC14x64Redist 'https://download.visualstudio.microsoft.com/download/pr/2250605e-e48f-43ed-ba6e-e0cc18bc530d/A9F5D2EAF67BF0DB0178B6552A71C523C707DF0E2CC66C06BFBC08BDC53387E7/VC_redist.x64.exe'
+#define VC14x64Redist 'https://aka.ms/vs/18/release/vc_redist.x64.exe'
 #define VC14x64RedistMIRROR 'http://tuni.ac/extra/Redist/VC_redist.x64.exe'
 #define VC14x64RedistdwMajor 14
-#define VC14x64RedistdwMinor 30
-#define VC14x64RedistdwBld 30704
-#define VC14x64RedistSize 24
+#define VC14x64RedistdwMinor 50
+#define VC14x64RedistdwBld 35719
+#define VC14x64RedistSize 25
 
 [Setup]
 AllowNoIcons=yes
@@ -57,6 +57,7 @@ Name: {app}\Guide\*.css; Type: files
 Name: {app}\Guide\Images\*.jpg; Type: files
 Name: {app}\unins*.*; Type: files
 Name: {app}\bass\bass_alac.dll; Type: files
+Name: {app}\bass\bass_ape.dll; Type: files
 
 [Files]
 Source: "include\WizardImageSmall2.bmp"; Flags: dontcopy
@@ -65,11 +66,12 @@ Source: "..\TuniacApp\images\NoAlbumArt.jpg"; DestDir: {app}\; Flags: ignorevers
 Source: "..\Housekeeping\Change Log.txt"; DestDir: {app}\; Flags: ignoreversion
 Source: "..\Housekeeping\gpl.txt"; DestDir: {app}\; Flags: ignoreversion
 Source: "..\Housekeeping\lgpl.txt"; DestDir: {app}\; Flags: ignoreversion
+Source: "..\Housekeeping\opensource.txt"; DestDir: {app}\; Flags: ignoreversion
 Source: "..\TuniacApp\icons\*.ico"; DestDir: {app}\iconsets\; Flags: ignoreversion recursesubdirs
 
 [Run]
-Filename: "{tmp}\vcredist_x86(2019).exe"; StatusMsg: "Installing Microsoft {#VC14RedistText} x86 Runtime... (Please wait!)"; Parameters: "/q /norestart"; Flags: skipifdoesntexist;
-Filename: "{tmp}\vcredist_x64(2019).exe"; StatusMsg: "Installing Microsoft {#VC14RedistText} x64 Runtime... (Please wait!)"; Parameters: "/q /norestart"; Flags: skipifdoesntexist;
+Filename: "{tmp}\vcredist_x86(2022).exe"; StatusMsg: "Installing Microsoft {#VC14RedistText} x86 Runtime... (Please wait!)"; Parameters: "/q /norestart"; Flags: skipifdoesntexist;
+Filename: "{tmp}\vcredist_x64(2022).exe"; StatusMsg: "Installing Microsoft {#VC14RedistText} x64 Runtime... (Please wait!)"; Parameters: "/q /norestart"; Flags: skipifdoesntexist;
 Filename: {app}\TuniacApp.exe; Description: {cm:LaunchProgram,Tuniac}; Flags: nowait postinstall skipifsilent
 
 [Registry]

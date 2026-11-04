@@ -29,8 +29,10 @@
 #include <iostream>
 #include <fstream>
 
-
 #include "AlbumArt.h"
+
+#define SIMPLEWEBP_IMPLEMENTATION
+#include "simplewebp.h"
 
 jmp_buf	CAlbumArt::sSetjmpBuffer ;
 
@@ -109,12 +111,21 @@ bool CAlbumArt::LoadSource(LPVOID pCompressedData, unsigned long ulDataLength, L
 			//jpeglib-turbo error, check if its likely a png file!
 			if(strcmp(szErrorMessage, "Not a JPEG file: starts with 0x89 0x50") == 0)
 				return LoadSource(pCompressedData, ulDataLength, L"image/png");
+			//jpeglib-turbo error, check if its likely a webp file!
+			else if (strcmp(szErrorMessage, "Not a JPEG file: starts with 0x52 0x49") == 0)
+				return LoadSource(pCompressedData, ulDataLength, L"image/webp");
 			else
 				return false;
 		}
 
 		jpeg_mem_src(&cinfo, (unsigned char *)pCompressedData, ulDataLength);
-		jpeg_read_header(&cinfo, TRUE);
+
+		if (jpeg_read_header(&cinfo, TRUE) != 1)
+		{
+			jpeg_abort_decompress(&cinfo);
+			return false;
+		}
+
 
 		cinfo.out_color_space = JCS_EXT_BGRX;
 		cinfo.dct_method = JDCT_FLOAT;
@@ -131,8 +142,11 @@ bool CAlbumArt::LoadSource(LPVOID pCompressedData, unsigned long ulDataLength, L
 		}
 
 		m_pBitmapData = malloc(m_ulBitmapWidth * m_ulBitmapHeight * cinfo.output_components);
-		if(!m_pBitmapData)
+		if (!m_pBitmapData)
+		{
+			jpeg_abort_decompress(&cinfo);
 			return false;
+		}
 
 		unsigned char * pOutData = (unsigned char *)m_pBitmapData;
 
@@ -140,8 +154,10 @@ bool CAlbumArt::LoadSource(LPVOID pCompressedData, unsigned long ulDataLength, L
 
 		while (cinfo.output_scanline < m_ulBitmapHeight)
 		{
-			jpeg_read_scanlines(&cinfo, &pOutData, 1);
-			pOutData += row_stride;
+			if (jpeg_read_scanlines(&cinfo, &pOutData, 1))
+			{
+				pOutData += row_stride;
+			}
 		}
 
 		jpeg_finish_decompress(&cinfo);
@@ -152,60 +168,68 @@ bool CAlbumArt::LoadSource(LPVOID pCompressedData, unsigned long ulDataLength, L
 	{
 		bool bOk = false;
 
-		/*
 		int r = 0;
 		//unsigned char *out = NULL;
 		size_t out_size = 0;
 
 		spng_ctx *ctx = spng_ctx_new(0);
-		spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
+		r = spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
 
-		spng_set_image_limits(ctx, 4096, 4096);
-
-		size_t limit = 1024 * 1024 * 64;
-		spng_set_chunk_limits(ctx, limit, limit);
-
-		r = spng_set_png_buffer(ctx, pCompressedData, ulDataLength);
 		if (r == 0)
 		{
-			r = spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &out_size);
+			r = spng_set_image_limits(ctx, 4096, 4096);
+			size_t limit = 1024 * 1024 * 64;
+
 			if (r == 0)
 			{
+				r = spng_set_chunk_limits(ctx, limit, limit);
 
-				if (m_pBitmapData)
-				{
-					free(m_pBitmapData);
-					m_pBitmapData = NULL;
-				}
-
-				m_pBitmapData = malloc(out_size);
-				if (!m_pBitmapData)
-					return false;
-
-
-				unsigned char* RGBAOutput;
-				unsigned char* BGRAOutput;
-
-				r = spng_decode_image(ctx, RGBAOutput, out_size, SPNG_FMT_RGBA8, 0);
 				if (r == 0)
 				{
-					int offset = 0;
+					r = spng_set_png_buffer(ctx, pCompressedData, ulDataLength);
 
-					for (int y = 0; y < 350; y++) {
-						for (int x = 0; x < 350; x++) {
+					if (r == 0)
+					{
+						r = spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &out_size);
 
-							auto temp = BGRAOutput[offset];
-							BGRAOutput[offset] = RGBAOutput[offset + 2];
-							BGRAOutput[offset + 1] = RGBAOutput[offset + 1];
-							BGRAOutput[offset + 2] = temp;
-							BGRAOutput[offset + 3] = RGBAOutput[offset + 3];
-							offset += 4;
+						if (r == 0)
+						{
+							if (m_pBitmapData)
+							{
+								free(m_pBitmapData);
+								m_pBitmapData = NULL;
+							}
+
+							m_pBitmapData = malloc(out_size);
+							if (!m_pBitmapData)
+							{
+								spng_ctx_free(ctx);
+								return false;
+							}
+
+
+
+							unsigned char* pOutData = (unsigned char*)m_pBitmapData;
+
+							r = spng_decode_image(ctx, pOutData, out_size, SPNG_FMT_RGBA8, 0);
+							struct spng_ihdr ihdr;
+							spng_get_ihdr(ctx, &ihdr);
+
+							m_ulBitmapWidth = ihdr.width;
+							m_ulBitmapHeight = ihdr.height;
+
+							if (r == 0)
+							{
+								//swap rgba to bgra
+								for (int i = 0; i < m_ulBitmapWidth * m_ulBitmapHeight * 4; i += 4)
+								{
+									std::swap(pOutData[i], pOutData[i + 2]);
+								}
+
+								bOk = true;
+							}
 						}
 					}
-
-					m_pBitmapData = BGRAOutput;
-
-					bOk = true;
 				}
 			}
 		}
@@ -224,8 +248,10 @@ bool CAlbumArt::LoadSource(LPVOID pCompressedData, unsigned long ulDataLength, L
 		}
 
 		spng_ctx_free(ctx);
-		*/
 
+		/*
+		//old libpng
+		
 		png_image				image;
 
 		memset(&image, 0, (sizeof image));
@@ -269,7 +295,54 @@ bool CAlbumArt::LoadSource(LPVOID pCompressedData, unsigned long ulDataLength, L
 		}
 
 		png_image_free(&image);
-	
+	*/
+
+		return bOk;
+	}
+
+	if (StrStrI(szMimeType, TEXT("image/webp")))
+	{
+		bool bOk = false;
+		int r = 0;
+
+		size_t width, height;
+		simplewebp* swebp;
+		simplewebp_load_from_memory((unsigned char*)pCompressedData, ulDataLength, NULL, &swebp);
+
+		simplewebp_get_dimensions(swebp, &width, &height);
+
+		m_ulBitmapWidth = width;
+		m_ulBitmapHeight = height;
+
+		if (m_pBitmapData)
+		{
+			free(m_pBitmapData);
+			m_pBitmapData = NULL;
+		}
+
+		m_pBitmapData = malloc(width * height * 4);
+		if (!m_pBitmapData)
+		{
+			simplewebp_unload(swebp);
+			return false;
+		}
+
+		unsigned char* pOutData = (unsigned char*)m_pBitmapData;
+
+		r = simplewebp_decode(swebp, pOutData, NULL);
+
+		if (r == 0)
+		{
+			//swap rgba to bgra
+			for (int i = 0; i < m_ulBitmapWidth * m_ulBitmapHeight * 4; i += 4)
+			{
+				std::swap(pOutData[i], pOutData[i + 2]);
+			}
+
+			bOk = true;
+		}
+
+		simplewebp_unload(swebp);
 
 		return bOk;
 	}
@@ -304,6 +377,9 @@ bool CAlbumArt::SetSource(LPTSTR szFilename)
 
 	if( StrStrI(szFilename, TEXT(".png")) )
 		return LoadSource(&buffer[0], size, TEXT("image/png"));
+
+	if (StrStrI(szFilename, TEXT(".webp")))
+		return LoadSource(&buffer[0], size, TEXT("image/webp"));
 
 	return false;
 }

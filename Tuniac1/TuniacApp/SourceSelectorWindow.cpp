@@ -54,6 +54,9 @@ CSourceSelectorWindow::CSourceSelectorWindow(void) :
 	t = m_PlaylistSourceView = new CPlaylistSourceView();
 	m_SourceViewArray.AddTail(t);
 
+	t = m_MicSourceView = new CMicSourceView();
+	m_SourceViewArray.AddTail(t);
+
 	t = m_AudioCDSourceView = new CAudioCDSourceView();
 	m_SourceViewArray.AddTail(t);
 
@@ -172,7 +175,6 @@ LRESULT CALLBACK			CSourceSelectorWindow::WndProc(HWND hDlg, UINT message, WPARA
 					m_SourceViewArray[x]->CreateSourceView(hDlg);
 					m_SourceViewArray[x]->ShowSourceView(false);
 				}
-
 				ListView_SetExtendedListViewStyle(GetDlgItem(hDlg, IDC_SOURCESELECTOR), LVS_EX_FULLROWSELECT);
 
 				LV_COLUMN lvC;
@@ -198,22 +200,28 @@ LRESULT CALLBACK			CSourceSelectorWindow::WndProc(HWND hDlg, UINT message, WPARA
 				// 3: smart playlist
 				ImageList_AddIcon(hList, tuniacApp.m_Skin.GetIcon(THEMEICON_PLAYLIST_STANDARD)); 
 
-				// 4: CD playlist
+				// 4: MIC playlist
+				ImageList_AddIcon(hList, tuniacApp.m_Skin.GetIcon(THEMEICON_PLAYLIST_MIC));
+
+				// 5: CD playlist
 				ImageList_AddIcon(hList, tuniacApp.m_Skin.GetIcon(THEMEICON_PLAYLIST_CD)); 
 
-				// 5 : unknown playlist active
+				// 6 : unknown playlist active
 				ImageList_AddIcon(hList, tuniacApp.m_Skin.GetIcon(THEMEICON_PLAYLIST_STANDARD_ACTIVE)); 
 
-				// 6: Library active
+				// 7: Library active
 				ImageList_AddIcon(hList, tuniacApp.m_Skin.GetIcon(THEMEICON_PLAYLIST_MEDIALIBRARY_ACTIVE));
 
-				// 7: Standard Playlist active
+				// 8: Standard Playlist active
 				ImageList_AddIcon(hList, tuniacApp.m_Skin.GetIcon(THEMEICON_PLAYLIST_STANDARD_ACTIVE)); 
 
-				// 8: smart playlist active
+				// 9: smart playlist active
 				ImageList_AddIcon(hList, tuniacApp.m_Skin.GetIcon(THEMEICON_PLAYLIST_STANDARD_ACTIVE)); 
 
-				// 9: CD playlist active
+				// 10: MIC playlist active
+				ImageList_AddIcon(hList, tuniacApp.m_Skin.GetIcon(THEMEICON_PLAYLIST_MIC_ACTIVE));
+
+				// 11: CD playlist active
 				ImageList_AddIcon(hList, tuniacApp.m_Skin.GetIcon(THEMEICON_PLAYLIST_CD_ACTIVE)); 
 
 				// 5: Radio!
@@ -713,17 +721,20 @@ LRESULT CALLBACK			CSourceSelectorWindow::WndProc(HWND hDlg, UINT message, WPARA
 							if(iPos == -1)
 								break;
 
-							if(IDNO == MessageBox(tuniacApp.getMainWindow(), TEXT("Are you sure you wish to delete the selected playlist(s)?"), TEXT("Confirm"), MB_YESNO | MB_ICONINFORMATION))
-								break;
-
 							IndexArray	m_DeleteArray;
 							while(iPos != -1)
 							{
-								//not ML playlist
-								if(iPos != 0)
-									m_DeleteArray.AddTail((unsigned long &)iPos);
+								IPlaylist* t = tuniacApp.m_PlaylistManager.GetPlaylistByIndex(iPos);
+								if (t->GetPlaylistType() != PLAYLIST_TYPE_MEDIALIBRARY && t->GetPlaylistType() != PLAYLIST_TYPE_MIC && t->GetPlaylistType() != PLAYLIST_TYPE_CD)
+										m_DeleteArray.AddTail((unsigned long&)iPos);
 
 								iPos = ListView_GetNextItem(hSourceViewWnd, iPos, LVNI_SELECTED);
+							}
+
+							if (m_DeleteArray.GetCount())
+							{
+								if (IDNO == MessageBox(tuniacApp.getMainWindow(), TEXT("Are you sure you wish to delete the selected playlist(s)?"), TEXT("Confirm"), MB_YESNO | MB_ICONINFORMATION))
+									break;
 							}
 
 							for(unsigned long i = m_DeleteArray.GetCount(); i > 0; i--)
@@ -1296,8 +1307,7 @@ IPlaylist * CSourceSelectorWindow::GetPlaylistFromPoint(LPPOINT lpPoint)
 		return NULL;
 
 	IPlaylist * pPlaylist = tuniacApp.m_PlaylistManager.GetPlaylistByIndex(x);
-	if (x == INVALID_PLAYLIST_INDEX)
-		int x = 2;
+
 	return pPlaylist;
 }
 
@@ -1335,6 +1345,12 @@ bool CSourceSelectorWindow::ShowPlaylistAtIndex(unsigned long ulIndex)
 				}
 				break;
 
+			case PLAYLIST_TYPE_MIC:
+				{
+					m_MicSourceView->SetPlaylistSource(ulIndex);
+					m_pVisibleView = m_MicSourceView;
+				}
+				break;
 
 			case PLAYLIST_TYPE_CD:
 				{
@@ -1367,6 +1383,10 @@ bool CSourceSelectorWindow::ShowPlaylistAtIndex(unsigned long ulIndex)
 
 		if(m_pVisibleView)
 			m_pVisibleView->Update();
+
+		//LVS_SINGLESEL enabled so no need to clear previous selection
+		//ListView_SetItemState(GetDlgItem(m_hSourceWnd, IDC_SOURCESELECTOR), -1, 0, LVIS_SELECTED);
+
 		ListView_SetItemState(GetDlgItem(m_hSourceWnd, IDC_SOURCESELECTOR), m_ulVisiblePlaylistIndex, LVIS_SELECTED, LVIS_SELECTED);
 		return true;
 	}

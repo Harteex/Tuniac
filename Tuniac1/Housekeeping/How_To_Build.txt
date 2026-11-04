@@ -1,7 +1,7 @@
 How to build Tuniac:
 
 
-This is written with Visual Studio Community 2022 in mind in January 2022.
+This is written with Visual Studio Community 2026 in mind in January 2026.
 Things may have changed since, use this only as a guide.
 
 For me:
@@ -22,16 +22,13 @@ Keep spaces out of the folder paths also. Eg dont use E:\purple monkey\tuniac\Tu
 
 
 
-2)You require TortoiseSVN, TortoiseGIT and CMake or equals
-
-https://tortoisesvn.net/
-https://tortoisesvn.net/downloads.html
+2)You require TortoiseGIT and CMake or equals
 
 https://code.google.com/p/tortoisegit/
 https://code.google.com/p/tortoisegit/wiki/Download
 
 https://cmake.org/
-https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-windows-x86_64.msi
+https://github.com/Kitware/CMake/releases/download/v4.4.2/cmake-4.4.2-windows-x86_64.msi
 
 Install them
 
@@ -39,51 +36,55 @@ Install them
 
 3)Gather repositories
 
-3a)You need Tuniac 1.0 SVN (https://sourceforge.net/projects/tuniac/)
-Navigate to C:\Code\, right click empty space and select SVN Checkout.
-In URL of repository add:
-https://svn.code.sf.net/p/tuniac/code/
-Change Directory to C:\Code\Tuniac
-Hit OK and wait
-
-3b)You should get zlib 1.2.11 GIT (https://zlib.net/)
+3a)You need Tuniac 1.0 git (https://tuni.ac/)
 Navigate to C:\Code\, right click empty space and select GIT Clone.
 In Clone existing repository add:
-https://github.com/madler/zlib.git
+https://github.com/twistedddx/Tuniac.git
 Hit OK and wait
 
-3c)You need TagLib 1.12.0 GIT (https://developer.kde.org/~wheeler/taglib.html)
+3b)You need TagLib 2.0.0 GIT (https://taglib.org/)
 Navigate to C:\Code\, right click empty space and select GIT Clone.
 In Clone existing repository add:
 https://github.com/taglib/taglib
-Tick Branch and enter "taglib" in to text box.
 Hit OK and wait
 
-3d)You need libpng 1.7 GIT (https://libpng.sourceforge.net/)
+3c)You need libspng 0.7.4 GIT (https://libspng.org/)
 Navigate to C:\Code\, right click empty space and select GIT Clone.
 In Clone existing repository add:
-git://git.code.sf.net/p/libpng/code
-Change Directory to C:\Code\libpng
-Tick Branch and enter "libpng17" in to text box.
+https://github.com/randy408/libspng.git
 Hit OK and wait
 
-3e)You need libjpeg-turbo 2.1.1 GIT (https://sourceforge.net/projects/libjpeg-turbo/)
+3d)You need libjpeg-turbo 3.1.0 GIT (https://libjpeg-turbo.org/)
 Navigate to C:\Code\, right click empty space and select GIT Clone.
 In Clone existing repository add:
 https://github.com/libjpeg-turbo/libjpeg-turbo
 Hit OK and wait
 
+3e)You need xbmc goom:
+Navigate to C:\Code\, right click empty space and select GIT Clone.
+In Clone existing repository add:
+https://github.com/xbmc/visualization.goom/
+Hit OK and wait
+
+3f)You need SimpleWebP:
+Navigate to C:\Code\, right click empty space and select GIT Clone.
+In Clone existing repository add:
+https://github.com/MikuAuahDark/simplewebp.git
+Hit OK and wait
 
 
 
-4)Build dependencies (turbojpeglib, taglib/zlib)
+4)Build dependencies (turbojpeglib, libspng, taglib/zlib)
 
-Run D:\Code\tuniac\Tuniac1\Housekeeping\build_zlib.cmd
-Run D:\Code\tuniac\Tuniac1\Housekeeping\build_taglib.cmd
-Run D:\Code\tuniac\Tuniac1\Housekeeping\build_libpng.cmd
+You should have NASM
+https://www.nasm.us/
+
+Run D:\Code\tuniac\Tuniac1\Housekeeping\build_vcpkg.cmd
+Run D:\Code\tuniac\Tuniac1\Housekeeping\build_libspng.cmd
 Run D:\Code\tuniac\Tuniac1\Housekeeping\build_turbojpeglib.cmd
+Run D:\Code\tuniac\Tuniac1\Housekeeping\build_taglib.cmd
 
-These cmd assume Win10 x64 and Visual Studio 2019 if you have anything else you may need to mod the file.
+These cmd assume Win11 x64 and Visual Studio 2022 if you have anything else you may need to mod the file.
 
 
 5)For the 32bit Sonique Visual Plugin visual (SVP_Plugin)
@@ -91,42 +92,23 @@ These cmd assume Win10 x64 and Visual Studio 2019 if you have anything else you 
 Note that 64 bit build works but there is no 64 bit SVP plugins to load.
 If you compile the solution this is skipped.
 
-
+5a)TuniacGoomVisualPlugin needs glew include and lib. Put them in TuniacGoomVisualPlugin\
+Download https://github.com/nigels-com/glew
+https://github.com/nigels-com/glew/releases/download/glew-2.3.1/glew-2.3.1-win32.zip
 
 6)For TuniacApp
 
-6a)You need nasm.
-https://nasm.us/
-https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/win64/nasm-2.15.05-installer-x64.exe
-
-
-
-6b)Build libjpeg-turbo static lib
-
-You can use my files if you cant get it to build right:
-https://tuni.ac/extra/VS2019/libjpeg-turbo_211_vs2019.zip
-extract to D:\Code\libjpeg-turbo
+6a)Build libjpeg-turbo static lib
 
 Look here for errors that look like:
 Cannot open include file: 'jpeglib.h'
 
-6c)Build libpng static lib
-
-You can use my files if you cant get it to build right:
-https://tuni.ac/extra/VS2019/libpng17_vs2019.zip
-extract to D:\Code\libpng
+6b)Build libspng static lib
 
 Look here for errors that look like:
-Cannot open include file: 'libpng.h'
+Cannot open include file: 'spng.h'
 
 7)std_Infomanager, build taglib static lib
-
-You can use my project if you cant get it to build right:
-https://tuni.ac/extra/VS2019/zlib_1211_vs2019.zip
-extract to D:\Code\zlib
-
-https://tuni.ac/extra/VS2019/taglib_1120_vs2019.zip
-extract to D:\Code\taglib\taglib
 
 Look here for errors that look like:
 Cannot open include file: 'tag.h'
@@ -137,24 +119,19 @@ Cannot open include file: 'tag.h'
 
 You need Inno QuickStart Pack
 https://jrsoftware.org/isinfo.php
-https://jrsoftware.org/download.php/ispack.exe
 
-http://files.jrsoftware.org/ispack/innosetup-qsp-5.6.1.exe
-
+8a)https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe
 Install everything it offers in the installer.
-
-I find it easiest to then install the standard Inno Setup installer over the top of that
-https://jrsoftware.org/download.php/is.exe
-
-http://files.jrsoftware.org/is/5/innosetup-5.6.1-unicode.exe
-
-This adds the right click context "Compile" for *.iss files
 
 Install Inno Download Plugin
 https://mitrichsoftware.wordpress.com/inno-setup-tools/inno-download-plugin/
 
 Make sure to check "Add IDP include path to ISPPBuiltins.iss" option during IDP installation.
+This will add:
+; Inno Download Plugin include path
+#pragma include __INCLUDE__ + ";" + ReadReg(HKLM, "Software\Mitrich Software\Inno Download Plugin", "InstallDir")
 
+If it doesn't add the above, add it to the end of %localappdata%\Programs\Inno Setup 6\ISPPBuiltins.iss
 
 Goto D:\Code\tuniac\Tuniac1\Setup-Scripts
 Right click desired setup iss file

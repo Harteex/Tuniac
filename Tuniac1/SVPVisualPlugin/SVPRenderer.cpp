@@ -481,7 +481,7 @@ bool	SVPRenderer::Attach(HDC hDC)
 		visdata = (float*)_aligned_malloc(VISDATA_SIZE * ulOldNumChannels * sizeof(float), 16);
 
 	
-		m_LastMove = GetTickCount();
+		m_LastMove = GetTickCount64();
 
 
 		lpRegType = REG_DWORD;
@@ -525,12 +525,7 @@ bool	SVPRenderer::Detach()
 
 void	SVPRenderer::Destroy(void)
 {
-	m_hDC = NULL;
-	if(visdata)
-	{
-		_aligned_free(visdata);
-		visdata = NULL;
-	}
+	Detach();
 
 	kiss_fft_free(kiss_cfg);
 	free(in_freq_data);
@@ -786,7 +781,7 @@ bool	SVPRenderer::Render(int w, int h)
 			glEnd ();
 
 			//arrows and visname
-			m_iElaspedTime = GetTickCount() - m_LastMove;
+			m_iElaspedTime = GetTickCount64() - m_LastMove;
 			if(m_iElaspedTime < 4000)
 			{
 
@@ -803,7 +798,10 @@ bool	SVPRenderer::Render(int w, int h)
 					float scale = (2000.0f - (float)val) / 2000.0f;
 					glColor4f(0.0f, 1.0f, 0.0f, scale);
 				}
-				myfont.DrawString(m_TheVisual->GetName(), 5.0F, 25.0F);
+				int iStrLen = strnlen_s(m_TheVisual->GetName(), 256) + 1;
+				char* nameString = (char*)malloc(iStrLen);
+				strcpy_s(nameString, iStrLen, m_TheVisual->GetName());
+				myfont.DrawString(nameString, 5.0F, 25.0F);
 
 				glBindTexture(GL_TEXTURE_2D, 1);
 				if(m_iElaspedTime < 2000)
@@ -963,7 +961,7 @@ bool	SVPRenderer::MouseFunction(unsigned long function, int x, int y)
 			if(m_VisFilenameArray.GetCount() == 1)
 				return true;
 
-			m_LastMove = GetTickCount();
+			m_LastMove = GetTickCount64();
 
 			if(m_TheVisual==NULL)
 			{
@@ -1011,18 +1009,14 @@ bool	SVPRenderer::MouseFunction(unsigned long function, int x, int y)
 
 bool	SVPRenderer::Configure(HWND hWndParent)
 {
+	CAutoLock m(&m_RenderLock);
+
 	if(iUseOpenGL)
 	{
-		CAutoLock m(&m_RenderLock);
-
 		ShutdownOpenGL();
+	}
 
-		DialogBoxParam(GetModuleHandle(L"SVPVisualPlugin.dll"), MAKEINTRESOURCE(IDD_SVPPREFWINDOW), hWndParent, (DLGPROC)WndProcStub, (DWORD_PTR)this);
-	}
-	else
-	{
-		DialogBoxParam(GetModuleHandle(L"SVPVisualPlugin.dll"), MAKEINTRESOURCE(IDD_SVPPREFWINDOW), hWndParent, (DLGPROC)WndProcStub, (DWORD_PTR)this);
-	}
+	DialogBoxParam(GetModuleHandle(L"SVPVisualPlugin.dll"), MAKEINTRESOURCE(IDD_SVPPREFWINDOW), hWndParent, (DLGPROC)WndProcStub, (DWORD_PTR)this);
 
 	if(iUseOpenGL)
 		InitOpenGL();
@@ -1045,6 +1039,8 @@ bool	SVPRenderer::About(HWND hWndParent)
 
 bool	SVPRenderer::InitOpenGL(void)
 {
+	CAutoLock m(&m_RenderLock);
+
 	m_hArrow = (HBITMAP)LoadImage((HINSTANCE)hInst, MAKEINTRESOURCE(IDB_BITMAP1), IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
 	::GetObject (m_hArrow, sizeof (m_ArrowBM), &m_ArrowBM);
 
@@ -1152,25 +1148,30 @@ bool	SVPRenderer::InitOpenGL(void)
 
 void	SVPRenderer::ShutdownOpenGL(void)
 {
+	CAutoLock m(&m_RenderLock);
+
 	//flush
-	SwapBuffers(m_hDC);
+	if (wglGetCurrentContext())
+	{
+		SwapBuffers(m_hDC);
+
+		if (iUsePBO)
+		{
+			glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[0]);
+			glBufferData(GL_PIXEL_UNPACK_BUFFER, iTextureSize, 0, GL_STREAM_DRAW);
+			glDeleteBuffers(1, pboIds);
+		}
+
+		//flush
+		SwapBuffers(m_hDC);
+
+		if (m_glRC)
+		{
+			wglMakeCurrent(NULL, NULL);
+			wglDeleteContext(m_glRC);
+			m_glRC = NULL;
+		}
+	}
 
 	myfont.Destroy();
-
-	if(iUsePBO)
-	{
-		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[0]);
-		glBufferData(GL_PIXEL_UNPACK_BUFFER, iTextureSize, 0, GL_STREAM_DRAW);
-		glDeleteBuffers(1, pboIds);
-	}
-
-	//flush
-	SwapBuffers(m_hDC);
-
-	if (m_glRC)
-	{
-		wglMakeCurrent(NULL,NULL);
-		wglDeleteContext(m_glRC);
-		m_glRC=NULL;
-	}
 }

@@ -138,6 +138,12 @@
     <ClCompile Include="ServicePluginManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="MicPlaylist.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MicSourceView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AboutWindow.h">
@@ -323,6 +329,12 @@
     <ClInclude Include="ServicePluginManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="MicPlaylist.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MicSourceView.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="cursors\addarrow.cur">
@@ -390,6 +402,9 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="default-theme\window.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="default-theme\playlist-radio.ico">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

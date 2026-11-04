@@ -10,9 +10,11 @@ by Brett Hoyle and others — kept building on modern Visual Studio. Expect
 C-with-classes: hand-rolled containers, `TCHAR` strings, Win32 message loops, manual
 `new`/`delete`, `#define` constants rather than enums.
 
-This checkout is a fork. `master` tracks upstream; **the `jellyfin2` branch is the fork
-owner's own work** (branched from the earlier `jellyfin` branch), adding a *service
-plugin* system with a Jellyfin streaming plugin as its first consumer.
+This checkout is a fork of `twistedddx/Tuniac` (remote `upstream`). `master` tracks
+upstream; **the `jellyfin2` branch is the fork owner's own work** (branched from the
+earlier `jellyfin` branch), adding a *service plugin* system with a Jellyfin streaming
+plugin as its first consumer. Upstream `master` was last merged into `jellyfin2` in
+November 2026.
 
 ## Repository layout
 
@@ -28,6 +30,7 @@ Tuniac/                     <- git root (this repo)
     PopupNotify/ NowPlayingTxt/ mIRCSpammer/  <- notification plugins
     NFN_Exporter/ textOutput_Plugin/ MMShellHook/ MMShellHookHelper/
     SVPVisualPlugin/        <- visualisation plugin (Win32 only)
+    TuniacGoomVisualPlugin/ <- Goom visualisation (needs goom + GLEW, see Building)
     Jellyfin_Plugin/        <- NEW on the jellyfin branches: the first service plugin
     Housekeeping/           <- build scripts, How_To_Build.txt, TODO.txt, changelog
     Guide/                  <- end-user HTML help
@@ -38,20 +41,30 @@ Tuniac/                     <- git root (this repo)
   docs/                     <- analysis docs for this fork (see below)
 ```
 
-Third-party libraries are **not** vendored — they are expected as sibling directories of
-the repo root (`../zlib`, `../taglib`, `../libpng`, `../libjpeg-turbo`) and built first
-via the scripts in `Tuniac1/Housekeeping/`. XAudio2 comes from the
-`Microsoft.XAudio2.Redist` NuGet package under `Tuniac1/packages/`. The one exception is
-RapidJSON, which *is* vendored, under `Tuniac1/Jellyfin_Plugin/rapidjson/`.
+Most third-party libraries are **not** vendored — they are expected as sibling
+directories of the repo root and built first with the scripts in `Tuniac1/Housekeeping/`:
+`../vcpkg` (provides zlib and utfcpp; `build_vcpkg.cmd` clones it and runs
+`vcpkg integrate install`), `../taglib` (2.x), `../libspng`, `../libjpeg-turbo` (3.x),
+`../simplewebp` (header only) and `../visualization.goom`. The libraries build into
+`build32` / `build64` inside each folder. GLEW's `glew32s.lib` comes from the GLEW
+release zip and goes in `Tuniac1/TuniacGoomVisualPlugin/lib/Release/<Win32|x64>/`
+(git-ignored). BASS and its add-ons *are* committed, under `Tuniac1/bass_Plugin/basslib/`,
+as are the GLEW headers. XAudio2 comes from the `Microsoft.XAudio2.Redist` NuGet package
+under `Tuniac1/packages/`. RapidJSON is vendored under `Tuniac1/Jellyfin_Plugin/rapidjson/`.
 
 ## Building
 
-- Open `Tuniac1/TuniacApp.sln` in **Visual Studio 2022**. There is no CLI or CMake build,
-  and no test suite. It cannot be built or run on a non-Windows host.
+- Open `Tuniac1/TuniacApp.sln` in **Visual Studio 2026**. There is no CMake build of
+  Tuniac itself, and no test suite. It cannot be built or run on a non-Windows host.
+  From a shell: `MSBuild.exe Tuniac1/TuniacApp.sln -restore -p:RestorePackagesConfig=true
+  -p:Configuration=Debug -p:Platform=x64` (MSBuild is under
+  `C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\`).
 - Configurations `Debug` / `Release` / `Release_xp`; platforms `Win32` and `x64`.
-  `Release_xp` uses the `v141_xp` toolset, everything else `v143`.
+  `Release_xp` uses the `v141_xp` toolset, everything else `v145`.
 - Read `Tuniac1/Housekeeping/How_To_Build.txt` before the first build — the external libs
-  must be built first or `TuniacApp` and `std_InfoManager` will not link.
+  must be built first or `TuniacApp`, `std_InfoManager` and the Goom plugin will not link.
+  Run the scripts from the `Housekeeping` folder (they `cd ..\..\..\` to find the libs);
+  each ends with `pause`.
 - Output layout, which the runtime loaders depend on:
 
   | Artifact | Lands in | Loaded from |
@@ -127,4 +140,5 @@ Things to know before touching this branch:
 2. A service link's resolved string (URL + auth header) must outlive the decoder that
    opened it; `CAudioStream` owns it. Don't pass a stack buffer to a decoder.
 3. Line endings are mixed per file (newer files LF, older ones CRLF). Keep each file's
-   existing endings so diffs stay small.
+   existing endings so diffs stay small. Git Bash's `sed -i` silently rewrites CRLF files
+   as LF; check `git diff --stat` against `--ignore-cr-at-eol` after scripted edits.

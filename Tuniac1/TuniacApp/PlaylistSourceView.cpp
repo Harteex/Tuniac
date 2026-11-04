@@ -585,6 +585,8 @@ bool	CPlaylistSourceView::ShowSourceView(bool bShow)
 	}
 	else
 	{
+		KillTimer(m_PlaylistSourceWnd, DELAYEDAPPLYFILTER_TIMERID);
+		m_pPlaylist = NULL;
 		ShowWindow(m_PlaylistSourceWnd, SW_HIDE);
 		return false;
 	}
@@ -1023,8 +1025,8 @@ LRESULT CALLBACK			CPlaylistSourceView::WndProc(HWND hDlg, UINT message, WPARAM 
 						break;
 
 
-						//right click to new playlist (send selected to playlist)
-					case ID_TONEWPLAYLIST:
+						//right click selected to new playlist
+					case ID_SELECTEDTONEWPLAYLIST:
 						{
 							IPlaylistEntry	*	pPE = NULL;
 							EntryArray			entryArray;
@@ -1047,43 +1049,12 @@ LRESULT CALLBACK			CPlaylistSourceView::WndProc(HWND hDlg, UINT message, WPARAM 
 
 							tuniacApp.m_PlaylistManager.CreateNewStandardPlaylistWithIDs(TEXT("New Dropped Playlist"), entryArray);
 							tuniacApp.m_SourceSelectorWindow->UpdateList();
+							tuniacApp.m_SourceSelectorWindow->ShowPlaylistAtIndex(tuniacApp.m_PlaylistManager.GetNumPlaylists() - 1);
 						}
 						break;
 
-						//right click show file (open explorer at file)
-					case ID_SHOWFILE:
-						{
-							IPlaylistEntry	*	pPE = NULL;
-
-							HWND				hListViewWnd	= GetDlgItem(hDlg, IDC_PLAYLIST_LIST);
-							int iPos = ListView_GetNextItem(hListViewWnd, -1, LVNI_SELECTED);
-							if(iPos == -1)
-								break;
-							if(iPos != -1)
-							{
-								pPE = m_pPlaylist->GetEntryAtNormalFilteredIndex(iPos);
-
-								if(pPE)
-								{
-									LPITEMIDLIST lpItemIDList;
-
-									LPMALLOC	pMalloc;
-									if(SHGetMalloc(&pMalloc) == NOERROR)
-									{
-										if(SHILCreateFromPath((LPTSTR)pPE->GetField(FIELD_URL), &lpItemIDList, NULL) == S_OK)
-										{
-											SHOpenFolderAndSelectItems(lpItemIDList, 0, NULL, 0);
-											pMalloc->Free(lpItemIDList);
-										}
-										pMalloc->Release();
-									}
-								}
-							}
-						}
-						break;
-
-						//right click filter by field (send field to new playlist)
-					case ID_FILTERBYFIELD:
+						//right click field to new playlist
+					case ID_FIELDTONEWPLAYLIST:
 						{
 							EntryArray			entryArray;
 							IPlaylistEntry *	pIPE				= m_pPlaylist->GetEntryAtNormalFilteredIndex(m_iLastClickedItem);
@@ -1133,6 +1104,38 @@ LRESULT CALLBACK			CPlaylistSourceView::WndProc(HWND hDlg, UINT message, WPARAM 
 							tuniacApp.RebuildFutureMenu();
 						}
 						break;
+
+						//right click show file (open explorer at file)
+					case ID_SHOWFILE:
+						{
+							IPlaylistEntry* pPE = NULL;
+
+							HWND				hListViewWnd = GetDlgItem(hDlg, IDC_PLAYLIST_LIST);
+							int iPos = ListView_GetNextItem(hListViewWnd, -1, LVNI_SELECTED);
+							if (iPos == -1)
+								break;
+							if (iPos != -1)
+							{
+								pPE = m_pPlaylist->GetEntryAtNormalFilteredIndex(iPos);
+
+								if (pPE)
+								{
+									LPITEMIDLIST lpItemIDList;
+
+									LPMALLOC	pMalloc;
+									if (SHGetMalloc(&pMalloc) == NOERROR)
+									{
+										if (SHILCreateFromPath((LPTSTR)pPE->GetField(FIELD_URL), &lpItemIDList, NULL) == S_OK)
+										{
+											SHOpenFolderAndSelectItems(lpItemIDList, 0, NULL, 0);
+											pMalloc->Free(lpItemIDList);
+										}
+										pMalloc->Release();
+									}
+								}
+							}
+						}
+					break;
 
 						//right click headers "options" (column views)
 					case ID_EDIT_SHOWCOLUMNSELECTION:
@@ -1799,7 +1802,7 @@ LRESULT CALLBACK			CPlaylistSourceView::WndProc(HWND hDlg, UINT message, WPARAM 
 									IPlaylistEntry * pIPE = m_pPlaylist->GetEntryAtNormalFilteredIndex(m_iLastClickedItem);
 									if(pIPE)
 									{
-										EnableMenuItem(m_ItemMenu, ID_FILTERBYFIELD, MF_BYCOMMAND | (HeaderEntries[m_ColumnIDArray[m_iLastClickedSubitem - 1]].bFilterable ? MF_ENABLED : MF_GRAYED));
+										EnableMenuItem(m_ItemMenu, ID_FIELDTONEWPLAYLIST, MF_BYCOMMAND | (HeaderEntries[m_ColumnIDArray[m_iLastClickedSubitem - 1]].bFilterable ? MF_ENABLED : MF_GRAYED));
 										EnableMenuItem(m_ItemMenu, ID_QUEUEBYFIELD, MF_BYCOMMAND | (HeaderEntries[m_ColumnIDArray[m_iLastClickedSubitem - 1]].bFilterable ? MF_ENABLED : MF_GRAYED));
 										CheckMenuItem(m_ItemMenu, ID_PAUSEHERE, tuniacApp.m_SoftPause.ulEntryID == pIPE->GetEntryID() ? MF_CHECKED : MF_UNCHECKED);
 										EnableMenuItem(m_ItemMenu, ID_SHOWFILE, MF_BYCOMMAND | (!PathIsURL((LPTSTR)pIPE->GetField(FIELD_URL)) ? MF_ENABLED : MF_GRAYED));
@@ -2009,7 +2012,7 @@ LRESULT CALLBACK			CPlaylistSourceView::WndProc(HWND hDlg, UINT message, WPARAM 
 			{
 				if(wParam == DELAYEDAPPLYFILTER_TIMERID)
 				{
-					KillTimer(hDlg, DELAYEDPLAY_TIMERID);
+					KillTimer(hDlg, DELAYEDAPPLYFILTER_TIMERID);
 
 					TCHAR tBuffer[256];
 					GetDlgItemText(hDlg, IDC_PLAYLIST_FILTER, tBuffer, 256);

@@ -51,8 +51,9 @@ CSTDInfoManager::CSTDInfoManager(void)
 	modFile = NULL;
 	s3mFile = NULL;
 	xmFile = NULL;
-	/* taglib2
 	dsfFile = NULL;
+	shnFile = NULL;
+	/* taglib2
 	ebmlFile = NULL;
 	*/
 }
@@ -68,12 +69,12 @@ void			CSTDInfoManager::Destroy(void)
 
 unsigned long	CSTDInfoManager::GetNumExtensions(void)
 {
-	return 35;
+	return 36;
 }
 
 LPTSTR			CSTDInfoManager::SupportedExtension(unsigned long ulExtentionNum)
 {
-	static LPTSTR exts[] = 
+	static LPTSTR exts[] =
 	{
 		TEXT(".flac"),
 		TEXT(".fla"),
@@ -85,6 +86,7 @@ LPTSTR			CSTDInfoManager::SupportedExtension(unsigned long ulExtentionNum)
 		TEXT(".mpp"),
 		TEXT(".wv"),
 		TEXT(".spx"),
+
 		TEXT(".opus"),
 		TEXT(".tta"),
 		TEXT(".m4a"),
@@ -95,6 +97,7 @@ LPTSTR			CSTDInfoManager::SupportedExtension(unsigned long ulExtentionNum)
 		TEXT(".3g2"),
 		TEXT(".alac"),
 		TEXT(".wma"),
+
 		TEXT(".asf"),
 		TEXT(".aif"),
 		TEXT(".aiff"),
@@ -105,12 +108,13 @@ LPTSTR			CSTDInfoManager::SupportedExtension(unsigned long ulExtentionNum)
 		TEXT(".mod"),
 		TEXT(".module"),
 		TEXT(".nst"),
+
 		TEXT(".wow"),
 		TEXT(".s3m"),
 		TEXT(".it"),
 		TEXT(".xm"),
-		TEXT(".dsf")
-
+		TEXT(".dsf"),
+		TEXT(".shn")
 	};
 
 	return exts[ulExtentionNum];
@@ -121,46 +125,48 @@ bool			CSTDInfoManager::CanHandle(LPTSTR szSource)
 	fileRef = TagLib::FileRef(szSource, true, TagLib::AudioProperties::Fast);
     if( !fileRef.isNull() )
     {
-		if(flacFile = dynamic_cast<TagLib::FLAC::File *>( fileRef.file() ))
+		if (flacFile = dynamic_cast<TagLib::FLAC::File*>(fileRef.file()))
 			return true;
-		else if(mp3File = dynamic_cast<TagLib::MPEG::File *>( fileRef.file() ))
+		else if (mp3File = dynamic_cast<TagLib::MPEG::File*>(fileRef.file()))
 			return true;
-		else if(mp4File = dynamic_cast<TagLib::MP4::File *>( fileRef.file() ))
+		else if (mp4File = dynamic_cast<TagLib::MP4::File*>(fileRef.file()))
 			return true;
-		else if(mpcFile = dynamic_cast<TagLib::MPC::File *>( fileRef.file() ))
+		else if (mpcFile = dynamic_cast<TagLib::MPC::File*>(fileRef.file()))
 			return true;
-		else if(ttaFile = dynamic_cast<TagLib::TrueAudio::File *>( fileRef.file() ))
+		else if (ttaFile = dynamic_cast<TagLib::TrueAudio::File*>(fileRef.file()))
 			return true;
-		else if(wvFile = dynamic_cast<TagLib::WavPack::File *>( fileRef.file() ))
+		else if (wvFile = dynamic_cast<TagLib::WavPack::File*>(fileRef.file()))
 			return true;
-		else if(oggFile = dynamic_cast<TagLib::Ogg::Vorbis::File *>( fileRef.file() ))
+		else if (oggFile = dynamic_cast<TagLib::Ogg::Vorbis::File*>(fileRef.file()))
 			return true;
-		else if(ogaFile = dynamic_cast<TagLib::Ogg::FLAC::File *>( fileRef.file() ))
+		else if (ogaFile = dynamic_cast<TagLib::Ogg::FLAC::File*>(fileRef.file()))
 			return true;
-		else if(spxFile = dynamic_cast<TagLib::Ogg::Speex::File *>( fileRef.file() ))
+		else if (spxFile = dynamic_cast<TagLib::Ogg::Speex::File*>(fileRef.file()))
 			return true;
-		else if(opusFile = dynamic_cast<TagLib::Ogg::Opus::File *>( fileRef.file() ))
+		else if (opusFile = dynamic_cast<TagLib::Ogg::Opus::File*>(fileRef.file()))
 			return true;
-		else if(wmaFile = dynamic_cast<TagLib::ASF::File *>( fileRef.file() ))
+		else if (wmaFile = dynamic_cast<TagLib::ASF::File*>(fileRef.file()))
 			return true;
-		else if(aiffFile = dynamic_cast<TagLib::RIFF::AIFF::File *>( fileRef.file() ))
+		else if (aiffFile = dynamic_cast<TagLib::RIFF::AIFF::File*>(fileRef.file()))
 			return true;
-		else if(wavFile = dynamic_cast<TagLib::RIFF::WAV::File *>( fileRef.file() ))
+		else if (wavFile = dynamic_cast<TagLib::RIFF::WAV::File*>(fileRef.file()))
 			return true;
-		else if(apeFile = dynamic_cast<TagLib::APE::File *>( fileRef.file() ))
+		else if (apeFile = dynamic_cast<TagLib::APE::File*>(fileRef.file()))
 			return true;
-		else if(itFile = dynamic_cast<TagLib::IT::File *>( fileRef.file() ))
+		else if (itFile = dynamic_cast<TagLib::IT::File*>(fileRef.file()))
 			return true;
-		else if(modFile = dynamic_cast<TagLib::Mod::File *>( fileRef.file() ))
+		else if (modFile = dynamic_cast<TagLib::Mod::File*>(fileRef.file()))
 			return true;
-		else if(s3mFile = dynamic_cast<TagLib::S3M::File *>( fileRef.file() ))
+		else if (s3mFile = dynamic_cast<TagLib::S3M::File*>(fileRef.file()))
 			return true;
-		else if(xmFile = dynamic_cast<TagLib::XM::File *>( fileRef.file() ))
+		else if (xmFile = dynamic_cast<TagLib::XM::File*>(fileRef.file()))
+			return true;
+		else if (dsfFile = dynamic_cast<TagLib::DSF::File*>(fileRef.file()))
+			return true;
+		else if (shnFile = dynamic_cast<TagLib::Shorten::File*>(fileRef.file()))
 			return true;
 		/* taglib2
-		else if (dsfFile = dynamic_cast<TagLib::DSF::File *>(fileRef.file()))
-			return true;
-		else if (ebmlFile = dynamic_cast<TagLib::EBML::File *>(fileRef.file()))
+		else if (ebmlFile = dynamic_cast<TagLib::EBML::File *>(fileRef.file() ))
 			return true;
 		*/
 
@@ -175,7 +181,7 @@ bool			CSTDInfoManager::GetInfo(LibraryEntry * libEnt)
 	TagLib::Ogg::FieldListMap vorbisTagListMap;
 	TagLib::APE::ItemListMap apeTagListMap;
 	TagLib::ID3v2::FrameListMap id3v2TagListMap;
-	TagLib::MP4::ItemListMap mp4TagListMap;
+	TagLib::MP4::ItemMap mp4TagListMap;
 	TagLib::ASF::AttributeListMap wmaTagListMap;
 	
 	TagLib::AudioProperties * audioProps = 0;
@@ -220,7 +226,7 @@ bool			CSTDInfoManager::GetInfo(LibraryEntry * libEnt)
 	}
 	else if(mp3File)
 	{
-		libEnt->ulBitsPerSample = BITRATE_UNDEFINABLE;
+		libEnt->ulBitsPerSample = BITDEPTH_UNDEFINABLE;
 		StringCchCopy(libEnt->szFileType, 16, L"mp3");
 		if(mp3File->ID3v2Tag())
 			id3v2TagListMap = mp3File->ID3v2Tag()->frameListMap();
@@ -235,11 +241,11 @@ bool			CSTDInfoManager::GetInfo(LibraryEntry * libEnt)
 		libEnt->ulBitsPerSample = mp4Props->bitsPerSample();
 		StringCchCopy(libEnt->szFileType, 16, L"mp4");
 		if(mp4File->tag())
-			mp4TagListMap = mp4File->tag()->itemListMap();
+			mp4TagListMap = mp4File->tag()->itemMap();
 	}
 	else if(mpcFile)
 	{
-		libEnt->ulBitsPerSample = BITRATE_UNDEFINABLE;
+		libEnt->ulBitsPerSample = BITDEPTH_UNDEFINABLE;
 		StringCchCopy(libEnt->szFileType, 16, L"mpc");
 		if(mpcFile->APETag())
 			apeTagListMap = mpcFile->APETag()->itemListMap();
@@ -264,7 +270,7 @@ bool			CSTDInfoManager::GetInfo(LibraryEntry * libEnt)
 	}
 	else if(oggFile)
 	{
-		libEnt->ulBitsPerSample = BITRATE_UNDEFINABLE;
+		libEnt->ulBitsPerSample = BITDEPTH_UNDEFINABLE;
 		StringCchCopy(libEnt->szFileType, 16, L"ogg");
 		if(oggFile->tag())
 			vorbisTagListMap = oggFile->tag()->fieldListMap();
@@ -280,14 +286,14 @@ bool			CSTDInfoManager::GetInfo(LibraryEntry * libEnt)
 	}
 	else if(spxFile)
 	{
-		libEnt->ulBitsPerSample = BITRATE_UNDEFINABLE;
+		libEnt->ulBitsPerSample = BITDEPTH_UNDEFINABLE;
 		StringCchCopy(libEnt->szFileType, 16, L"spx");
 		if(spxFile->tag())
 			vorbisTagListMap = spxFile->tag()->fieldListMap();
 	}
 	else if(opusFile)
 	{
-		libEnt->ulBitsPerSample = BITRATE_UNDEFINABLE;
+		libEnt->ulBitsPerSample = BITDEPTH_UNDEFINABLE;
 		StringCchCopy(libEnt->szFileType, 16, L"opus");
 		if(opusFile->tag())
 			vorbisTagListMap = opusFile->tag()->fieldListMap();
@@ -344,14 +350,22 @@ bool			CSTDInfoManager::GetInfo(LibraryEntry * libEnt)
 		libEnt->ulBitsPerSample = BITRATE_UNKNOWN;
 		StringCchCopy(libEnt->szFileType, 16, L"xm");
 	}
-	/* taglib2
+
 	else if (dsfFile)
 	{
-		TagLib::DSF::AudioProperties * dsfProps = 0;
-		dsfProps = dynamic_cast<TagLib::DSF::AudioProperties *>(fileRef.audioProperties());
+		TagLib::DSF::Properties * dsfProps = 0;
+		dsfProps = dynamic_cast<TagLib::DSF::Properties *>(fileRef.audioProperties());
 		libEnt->ulBitsPerSample = dsfProps->bitsPerSample();
 		StringCchCopy(libEnt->szFileType, 16, L"dsf");
 	}
+	else if (shnFile)
+	{
+		TagLib::Shorten::Properties* shnProps = 0;
+		shnProps = dynamic_cast<TagLib::Shorten::Properties*>(fileRef.audioProperties());
+		libEnt->ulBitsPerSample = shnProps->bitsPerSample();
+		StringCchCopy(libEnt->szFileType, 16, L"shn");
+	}
+	/* taglib2
 	else if (ebmlFile)
 	{
 		libEnt->ulBitsPerSample = BITRATE_UNKNOWN;
@@ -596,11 +610,13 @@ bool			CSTDInfoManager::GetInfo(LibraryEntry * libEnt)
 		modFile = NULL;
 	if(s3mFile)
 		s3mFile = NULL;
-	if (xmFile)
+	if(xmFile)
 		xmFile = NULL;
-	/* taglib2
-	if (dsfFile)
+	if(dsfFile)
 		dsfFile = NULL;
+	if(shnFile)
+		shnFile = NULL;
+	/* taglib2
 	if (ebmlFile)
 		ebmlFile = NULL;
 	*/
@@ -627,7 +643,7 @@ bool			CSTDInfoManager::SetInfo(LibraryEntry * libEnt)
 
 		if(mp3File = dynamic_cast<TagLib::MPEG::File *>( fileRef.file() ))
 		{
-			if(mp3File->save(TagLib::MPEG::File::AllTags, false, 3))
+			if(mp3File->save(TagLib::MPEG::File::AllTags, TagLib::File::StripNone, TagLib::ID3v2::v3))
 			{
 				fileRef = TagLib::FileRef();
 				return true;
@@ -689,7 +705,7 @@ unsigned long	CSTDInfoManager::GetNumberOfAlbumArts(void)
 	else if(mp4File = dynamic_cast<TagLib::MP4::File *>( fileRef.file() ))
 	{
 		if(mp4File->tag())
-			count = mp4File->tag()->itemListMap()["covr"].toCoverArtList().size();
+			count = mp4File->tag()->itemMap()["covr"].toCoverArtList().size();
 	}
 	else if (ttaFile = dynamic_cast<TagLib::TrueAudio::File *>(fileRef.file()))
 	{
@@ -838,7 +854,7 @@ bool			CSTDInfoManager::GetAlbumArt(	unsigned long		ulImageIndex,
 	{
 		if(mp4File->tag())
 		{
-			TagLib::MP4::Item mp4TagItem = mp4File->tag()->itemListMap()["covr"];
+			TagLib::MP4::Item mp4TagItem = mp4File->tag()->itemMap()["covr"];
 
 			if(mp4TagItem.isValid())
 			{
@@ -849,13 +865,13 @@ bool			CSTDInfoManager::GetAlbumArt(	unsigned long		ulImageIndex,
 					*ulImageDataSize = coverArt.data().size();
 					*pImageData = malloc(*ulImageDataSize);
 
-					if(coverArt.format() == 13)
+					if(coverArt.format() == TagLib::MP4::CoverArt::Format::JPEG)
 						StringCchCopy(szMimeType, 128, TEXT("image/jpeg"));
-					else if(coverArt.format() == 14)
+					else if(coverArt.format() == TagLib::MP4::CoverArt::Format::PNG)
 						StringCchCopy(szMimeType, 128, TEXT("image/png"));
-					else if(coverArt.format() == 27)
+					else if(coverArt.format() == TagLib::MP4::CoverArt::Format::BMP)
 						StringCchCopy(szMimeType, 128, TEXT("image/bmp"));
-					else if(coverArt.format() == 12)
+					else if(coverArt.format() == TagLib::MP4::CoverArt::Format::GIF)
 						StringCchCopy(szMimeType, 128, TEXT("image/gif"));
 
 					CopyMemory(*pImageData, coverArt.data().data(), *ulImageDataSize);

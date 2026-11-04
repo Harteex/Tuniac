@@ -1,6 +1,6 @@
 /*
 	BASSMIDI 2.4 C/C++ header file
-	Copyright (c) 2006-2020 Un4seen Developments Ltd.
+	Copyright (c) 2006-2026 Un4seen Developments Ltd.
 
 	See the BASSMIDI.CHM file for more detailed documentation
 */
@@ -14,12 +14,18 @@
 #error conflicting BASS and BASSMIDI versions
 #endif
 
+#ifdef __OBJC__
+#define BOOL BOOL32 // override objc's BOOL
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #ifndef BASSMIDIDEF
 #define BASSMIDIDEF(f) WINAPI f
+#else
+#define NOBASSMIDIOVERLOADS
 #endif
 
 typedef DWORD HSOUNDFONT;	// soundfont handle
@@ -28,17 +34,18 @@ typedef DWORD HSOUNDFONT;	// soundfont handle
 #define BASS_ERROR_MIDI_INCLUDE		7000	// SFZ include file could not be opened
 
 // Additional BASS_SetConfig options
-#define BASS_CONFIG_MIDI_COMPACT	0x10400
-#define BASS_CONFIG_MIDI_VOICES		0x10401
-#define BASS_CONFIG_MIDI_AUTOFONT	0x10402
-#define BASS_CONFIG_MIDI_IN_PORTS	0x10404
-#define BASS_CONFIG_MIDI_SAMPLETHREADS 0x10406
-#define BASS_CONFIG_MIDI_SAMPLEMEM	0x10407
-#define BASS_CONFIG_MIDI_SAMPLEREAD	0x10408
+#define BASS_CONFIG_MIDI_COMPACT		0x10400
+#define BASS_CONFIG_MIDI_VOICES			0x10401
+#define BASS_CONFIG_MIDI_AUTOFONT		0x10402
+#define BASS_CONFIG_MIDI_IN_PORTS		0x10404
+#define BASS_CONFIG_MIDI_SAMPLETHREADS	0x10406
+#define BASS_CONFIG_MIDI_SAMPLEMEM		0x10407
+#define BASS_CONFIG_MIDI_SAMPLEREAD		0x10408
+#define BASS_CONFIG_MIDI_SAMPLELOADING	0x1040a
 
 // Additional BASS_SetConfigPtr options
 #define BASS_CONFIG_MIDI_DEFFONT	0x10403
-#define BASS_CONFIG_MIDI_SFZHEAD	0x10408
+#define BASS_CONFIG_MIDI_SFZHEAD	0x10409
 
 // Additional sync types
 #define BASS_SYNC_MIDI_MARK		0x10000
@@ -52,23 +59,30 @@ typedef DWORD HSOUNDFONT;	// soundfont handle
 #define BASS_SYNC_MIDI_KEYSIG	0x10007
 
 // Additional BASS_MIDI_StreamCreateFile/etc flags
-#define BASS_MIDI_NOSYSRESET	0x800
-#define BASS_MIDI_DECAYEND		0x1000
-#define BASS_MIDI_NOFX			0x2000
-#define BASS_MIDI_DECAYSEEK		0x4000
-#define BASS_MIDI_NOCROP		0x8000
-#define BASS_MIDI_NOTEOFF1		0x10000
-#define BASS_MIDI_SINCINTER		0x800000
+#define BASS_MIDI_NODRUMPARAMUSER	0x200
+#define BASS_MIDI_NODRUMPARAM		0x400
+#define BASS_MIDI_NOSYSRESET		0x800
+#define BASS_MIDI_DECAYEND			0x1000
+#define BASS_MIDI_NOFX				0x2000
+#define BASS_MIDI_DECAYSEEK			0x4000
+#define BASS_MIDI_NOCROP			0x8000
+#define BASS_MIDI_NOTEOFF1			0x10000
+#define BASS_MIDI_ASYNC				0x400000
+#define BASS_MIDI_SINCINTER			0x800000
 
 // BASS_MIDI_FontInit flags
-#define BASS_MIDI_FONT_MEM		0x10000
-#define BASS_MIDI_FONT_MMAP		0x20000
-#define BASS_MIDI_FONT_XGDRUMS	0x40000
-#define BASS_MIDI_FONT_NOFX		0x80000
+#define BASS_MIDI_FONT_MEM			0x10000
+#define BASS_MIDI_FONT_MMAP			0x20000
+#define BASS_MIDI_FONT_XGDRUMS		0x40000
+#define BASS_MIDI_FONT_NOFX			0x80000
 #define BASS_MIDI_FONT_LINATTMOD	0x100000
 #define BASS_MIDI_FONT_LINDECVOL	0x200000
 #define BASS_MIDI_FONT_NORAMPIN		0x400000
-#define BASS_MIDI_FONT_NOLIMITS		0x800000
+#define BASS_MIDI_FONT_NOSBLIMITS	0x800000
+#define BASS_MIDI_FONT_NOLIMITS		BASS_MIDI_FONT_NOSBLIMITS
+#define BASS_MIDI_FONT_MINFX		0x1000000
+#define BASS_MIDI_FONT_SBLIMITS		0x2000000
+#define BASS_MIDI_FONT_STEREO		0x4000000
 
 typedef struct {
 	HSOUNDFONT font;	// soundfont
@@ -85,8 +99,20 @@ typedef struct {
 	int dbanklsb;		// destination bank number LSB
 } BASS_MIDI_FONTEX;
 
+typedef struct {
+	HSOUNDFONT font;	// soundfont
+	int spreset;		// source preset number
+	int sbank;			// source bank number
+	int dpreset;		// destination preset/program number
+	int dbank;			// destination bank number
+	int dbanklsb;		// destination bank number LSB
+	DWORD minchan;		// minimum channel number
+	DWORD numchan;		// number of channels from minchan
+} BASS_MIDI_FONTEX2;
+
 // BASS_MIDI_StreamSet/GetFonts flag
 #define BASS_MIDI_FONT_EX		0x1000000	// BASS_MIDI_FONTEX
+#define BASS_MIDI_FONT_EX2		0x2000000	// BASS_MIDI_FONTEX2
 
 typedef struct {
 	const char *name;
@@ -105,17 +131,18 @@ typedef struct {
 } BASS_MIDI_MARK;
 
 // Marker types
-#define BASS_MIDI_MARK_MARKER	0	// marker
-#define BASS_MIDI_MARK_CUE		1	// cue point
-#define BASS_MIDI_MARK_LYRIC	2	// lyric
-#define BASS_MIDI_MARK_TEXT		3	// text
-#define BASS_MIDI_MARK_TIMESIG	4	// time signature
-#define BASS_MIDI_MARK_KEYSIG	5	// key signature
-#define BASS_MIDI_MARK_COPY		6	// copyright notice
-#define BASS_MIDI_MARK_TRACK	7	// track name
-#define BASS_MIDI_MARK_INST		8	// instrument name
+#define BASS_MIDI_MARK_MARKER		0	// marker
+#define BASS_MIDI_MARK_CUE			1	// cue point
+#define BASS_MIDI_MARK_LYRIC		2	// lyric
+#define BASS_MIDI_MARK_TEXT			3	// text
+#define BASS_MIDI_MARK_TIMESIG		4	// time signature
+#define BASS_MIDI_MARK_KEYSIG		5	// key signature
+#define BASS_MIDI_MARK_COPY			6	// copyright notice
+#define BASS_MIDI_MARK_TRACK		7	// track name
+#define BASS_MIDI_MARK_INST			8	// instrument name
 #define BASS_MIDI_MARK_TRACKSTART	9	// track start (SMF2)
-#define BASS_MIDI_MARK_TICK		0x10000 // flag: get position in ticks (otherwise bytes)
+#define BASS_MIDI_MARK_SEQSPEC		10	// sequencer-specific
+#define BASS_MIDI_MARK_TICK			0x10000 // flag: get position in ticks (otherwise bytes)
 
 // MIDI events
 #define MIDI_EVENT_NOTE				1
@@ -197,10 +224,14 @@ typedef struct {
 #define MIDI_EVENT_VIBRATO_RATE		80
 #define MIDI_EVENT_VIBRATO_DEPTH	81
 #define MIDI_EVENT_VIBRATO_DELAY	82
+#define MIDI_EVENT_MASTER_FINETUNE	83
+#define MIDI_EVENT_MASTER_COARSETUNE 84
+#define MIDI_EVENT_PAN_LSB			85
 #define MIDI_EVENT_MIXLEVEL			0x10000
 #define MIDI_EVENT_TRANSPOSE		0x10001
 #define MIDI_EVENT_SYSTEMEX			0x10002
 #define MIDI_EVENT_SPEED			0x10004
+#define MIDI_EVENT_DEFDRUMS			0x10006
 
 #define MIDI_EVENT_END				0
 #define MIDI_EVENT_END_TRACK		0x10003
@@ -213,6 +244,7 @@ typedef struct {
 #define MIDI_SYSTEM_GM2				2
 #define MIDI_SYSTEM_XG				3
 #define MIDI_SYSTEM_GS				4
+#define MIDI_SYSTEM_GS_88			5
 
 typedef struct {
 	DWORD event;		// MIDI_EVENT_xxx
@@ -230,11 +262,14 @@ typedef struct {
 #define BASS_MIDI_EVENTS_CANCEL		0x4000000 // flag: cancel pending events
 #define BASS_MIDI_EVENTS_TIME		0x8000000 // flag: delta-time info is present
 #define BASS_MIDI_EVENTS_ABSTIME	0x10000000 // flag: absolute time info is present
+#define BASS_MIDI_EVENTS_ASYNC		0x20000000 // flag: process asynchronously
+#define BASS_MIDI_EVENTS_FILTER		0x40000000 // flag: apply filtering
+#define BASS_MIDI_EVENTS_FLUSH		0x80000000 // flag: flush async events
 
 // BASS_MIDI_StreamGetChannel special channels
-#define BASS_MIDI_CHAN_CHORUS		(DWORD)-1
-#define BASS_MIDI_CHAN_REVERB		(DWORD)-2
-#define BASS_MIDI_CHAN_USERFX		(DWORD)-3
+#define BASS_MIDI_CHAN_CHORUS	(DWORD)-1
+#define BASS_MIDI_CHAN_REVERB	(DWORD)-2
+#define BASS_MIDI_CHAN_USERFX	(DWORD)-3
 
 // BASS_CHANNELINFO type
 #define BASS_CTYPE_STREAM_MIDI	0x10d00
@@ -251,15 +286,22 @@ typedef struct {
 #define BASS_ATTRIB_MIDI_SPEED		0x12008
 #define BASS_ATTRIB_MIDI_REVERB		0x12009
 #define BASS_ATTRIB_MIDI_VOL		0x1200a
+#define BASS_ATTRIB_MIDI_QUEUE_TICK	0x1200b
+#define BASS_ATTRIB_MIDI_QUEUE_BYTE	0x1200c
+#define BASS_ATTRIB_MIDI_QUEUE_ASYNC 0x1200d
+#define BASS_ATTRIB_MIDI_QUEUED_TICK 0x1200e
+#define BASS_ATTRIB_MIDI_QUEUED_BYTE 0x1200f
+#define BASS_ATTRIB_MIDI_QUEUED_ASYNC 0x12010
+#define BASS_ATTRIB_MIDI_EXCKEYS	0x12011
 #define BASS_ATTRIB_MIDI_TRACK_VOL	0x12100 // + track #
 
 // Additional tag type
-#define BASS_TAG_MIDI_TRACK	0x11000	// + track #, track text : array of null-terminated ANSI strings
+#define BASS_TAG_MIDI_TRACK		0x11000	// + track #, track text : array of null-terminated ANSI strings
 
 // BASS_ChannelGetLength/GetPosition/SetPosition mode
 #define BASS_POS_MIDI_TICK		2		// tick position
 
-typedef BOOL (CALLBACK MIDIFILTERPROC)(HSTREAM handle, DWORD track, BASS_MIDI_EVENT *event, BOOL seeking, void *user);
+typedef BOOL (CALLBACK MIDIFILTERPROC)(HSTREAM handle, int track, BASS_MIDI_EVENT *event, BOOL seeking, void *user);
 /* Event filtering callback function.
 handle : MIDI stream handle
 track  : Track containing the event
@@ -294,8 +336,10 @@ buffer : Buffer containing MIDI data
 length : Number of bytes of data
 user   : The 'user' parameter value given when calling BASS_MIDI_InInit */
 
+DWORD BASSMIDIDEF(BASS_MIDI_GetVersion)(void);
+
 HSTREAM BASSMIDIDEF(BASS_MIDI_StreamCreate)(DWORD channels, DWORD flags, DWORD freq);
-HSTREAM BASSMIDIDEF(BASS_MIDI_StreamCreateFile)(BOOL mem, const void *file, QWORD offset, QWORD length, DWORD flags, DWORD freq);
+HSTREAM BASSMIDIDEF(BASS_MIDI_StreamCreateFile)(DWORD filetype, const void *file, QWORD offset, QWORD length, DWORD flags, DWORD freq);
 HSTREAM BASSMIDIDEF(BASS_MIDI_StreamCreateURL)(const char *url, DWORD offset, DWORD flags, DOWNLOADPROC *proc, void *user, DWORD freq);
 HSTREAM BASSMIDIDEF(BASS_MIDI_StreamCreateFileUser)(DWORD system, DWORD flags, const BASS_FILEPROCS *procs, void *user, DWORD freq);
 HSTREAM BASSMIDIDEF(BASS_MIDI_StreamCreateEvents)(const BASS_MIDI_EVENT *events, DWORD ppqn, DWORD flags, DWORD freq);
@@ -325,6 +369,7 @@ BOOL BASSMIDIDEF(BASS_MIDI_FontUnload)(HSOUNDFONT handle, int preset, int bank);
 BOOL BASSMIDIDEF(BASS_MIDI_FontCompact)(HSOUNDFONT handle);
 BOOL BASSMIDIDEF(BASS_MIDI_FontPack)(HSOUNDFONT handle, const void *outfile, const void *encoder, DWORD flags);
 BOOL BASSMIDIDEF(BASS_MIDI_FontUnpack)(HSOUNDFONT handle, const void *outfile, DWORD flags);
+DWORD BASSMIDIDEF(BASS_MIDI_FontFlags)(HSOUNDFONT handle, DWORD flags, DWORD mask);
 BOOL BASSMIDIDEF(BASS_MIDI_FontSetVolume)(HSOUNDFONT handle, float volume);
 float BASSMIDIDEF(BASS_MIDI_FontGetVolume)(HSOUNDFONT handle);
 
@@ -339,25 +384,43 @@ BOOL BASSMIDIDEF(BASS_MIDI_InStop)(DWORD device);
 #ifdef __cplusplus
 }
 
+#ifndef NOBASSMIDIOVERLOADS
 static inline BOOL BASS_MIDI_StreamSetFonts(HSTREAM handle, const BASS_MIDI_FONTEX *fonts, DWORD count)
 {
-	return BASS_MIDI_StreamSetFonts(handle, (const void*)fonts, count|BASS_MIDI_FONT_EX);
+	return BASS_MIDI_StreamSetFonts(handle, (const void*)fonts, count | BASS_MIDI_FONT_EX);
+}
+
+static inline BOOL BASS_MIDI_StreamSetFonts(HSTREAM handle, const BASS_MIDI_FONTEX2 *fonts, DWORD count)
+{
+	return BASS_MIDI_StreamSetFonts(handle, (const void*)fonts, count | BASS_MIDI_FONT_EX2);
 }
 
 static inline DWORD BASS_MIDI_StreamGetFonts(HSTREAM handle, BASS_MIDI_FONTEX *fonts, DWORD count)
 {
-	return BASS_MIDI_StreamGetFonts(handle, (void*)fonts, count|BASS_MIDI_FONT_EX);
+	return BASS_MIDI_StreamGetFonts(handle, (void*)fonts, count | BASS_MIDI_FONT_EX);
 }
 
-#ifdef _WIN32
-static inline HSTREAM BASS_MIDI_StreamCreateFile(BOOL mem, const WCHAR *file, QWORD offset, QWORD length, DWORD flags, DWORD freq)
+static inline DWORD BASS_MIDI_StreamGetFonts(HSTREAM handle, BASS_MIDI_FONTEX2 *fonts, DWORD count)
 {
-	return BASS_MIDI_StreamCreateFile(mem, (const void*)file, offset, length, flags|BASS_UNICODE, freq);
+	return BASS_MIDI_StreamGetFonts(handle, (void*)fonts, count | BASS_MIDI_FONT_EX2);
+}
+
+#if __cplusplus >= 200707 || _MSC_VER >= 1600
+static inline DWORD BASS_MIDI_StreamGetFonts(HSTREAM handle, decltype(nullptr) fonts, DWORD count)
+{
+	return BASS_MIDI_StreamGetFonts(handle, (void*)fonts, count);
+}
+#endif
+
+#ifdef _WIN32
+static inline HSTREAM BASS_MIDI_StreamCreateFile(DWORD filetype, const WCHAR *file, QWORD offset, QWORD length, DWORD flags, DWORD freq)
+{
+	return BASS_MIDI_StreamCreateFile(filetype, (const void*)file, offset, length, flags | BASS_UNICODE, freq);
 }
 
 static inline HSTREAM BASS_MIDI_StreamCreateURL(const WCHAR *url, DWORD offset, DWORD flags, DOWNLOADPROC *proc, void *user, DWORD freq)
 {
-	return BASS_MIDI_StreamCreateURL((const char*)url, offset, flags|BASS_UNICODE, proc, user, freq);
+	return BASS_MIDI_StreamCreateURL((const char*)url, offset, flags | BASS_UNICODE, proc, user, freq);
 }
 
 static inline HSOUNDFONT BASS_MIDI_FontInit(const WCHAR *file, DWORD flags)
@@ -367,14 +430,19 @@ static inline HSOUNDFONT BASS_MIDI_FontInit(const WCHAR *file, DWORD flags)
 
 static inline BOOL BASS_MIDI_FontPack(HSOUNDFONT handle, const WCHAR *outfile, const WCHAR *encoder, DWORD flags)
 {
-	return BASS_MIDI_FontPack(handle, (const void*)outfile, (const void*)encoder, flags|BASS_UNICODE);
+	return BASS_MIDI_FontPack(handle, (const void*)outfile, (const void*)encoder, flags | BASS_UNICODE);
 }
 
 static inline BOOL BASS_MIDI_FontUnpack(HSOUNDFONT handle, const WCHAR *outfile, DWORD flags)
 {
-	return BASS_MIDI_FontUnpack(handle, (const void*)outfile, flags|BASS_UNICODE);
+	return BASS_MIDI_FontUnpack(handle, (const void*)outfile, flags | BASS_UNICODE);
 }
 #endif
+#endif
+#endif
+
+#ifdef __OBJC__
+#undef BOOL
 #endif
 
 #endif

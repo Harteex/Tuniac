@@ -237,14 +237,43 @@ bool CTuniacApp::Initialize(HINSTANCE hInstance, LPTSTR szCommandLine)
 	RECT r;
 	CopyRect(&r, m_Preferences.GetMainWindowRect());
 
-	if(r.top < 0)
-		r.top	= 0;
-	if(r.left < 0)
-		r.left	= 0;
-	if(r.right < 530)
-		r.right = 530;
-	if(r.bottom < 400)
-		r.bottom = 400;
+	// Get the monitor that has the largest area of intersection with the window rect
+	HMONITOR hMonitor = MonitorFromRect(&r, MONITOR_DEFAULTTONEAREST);
+
+	MONITORINFO mi = { sizeof(MONITORINFO) };
+	if (!GetMonitorInfo(hMonitor, &mi)) {
+		return false;
+	}
+
+	RECT workArea = mi.rcWork;
+
+	// min window 650x445
+	if (r.right < 650)
+		r.right = 650;
+	if (r.bottom < 445)
+		r.bottom = 445;
+
+	// top too low to fit bottom, move up
+	if ((r.top + r.bottom) > workArea.bottom)
+		r.top = workArea.bottom - (r.bottom + 50);
+	// top too high, move down
+	if (r.top < workArea.top)
+		r.top = workArea.top + 50;
+
+	// bottom still too low. Shrink bottom to suit.
+	if ((r.top + r.bottom) > workArea.bottom)
+		r.bottom = workArea.bottom - 50;
+
+	// left too right to fit right, move left
+	if ((r.left + r.right) > workArea.right)
+		r.left = workArea.right - (r.right + 50);
+	// left too left, move right
+	if (r.left < workArea.left)
+		r.left = workArea.left + 50;
+
+	// right still too right to fit right. Shrink right to suit.
+	if ((r.left + r.right) > workArea.right)
+		r.right = workArea.right - 50;
 
 	//create our main window
 	m_hWnd = CreateWindowEx(WS_EX_ACCEPTFILES | WS_EX_APPWINDOW,
@@ -334,6 +363,11 @@ bool CTuniacApp::Initialize(HINSTANCE hInstance, LPTSTR szCommandLine)
 	{
 		if(m_VisualWindow)
 			m_VisualWindow->Show();
+	}
+	if (m_Preferences.GetShowMicInputPlaylist())
+	{
+		m_PlaylistManager.m_MicPlaylist.SetEnabled(true);
+		m_SourceSelectorWindow->UpdateList();
 	}
 
 	m_WindowArray[m_Preferences.GetActiveWindow()]->Show();
@@ -2151,6 +2185,7 @@ LRESULT CALLBACK CTuniacApp::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPA
 						case ID_PLAYBACK_PLAY:
 							{
 								//if only paused we can simply play again
+								
 								if(CCoreAudio::Instance()->Play())
 								{
 									UpdateState();
@@ -3325,16 +3360,19 @@ bool	CTuniacApp::GetArt(LPTSTR szSource)
 	{
 		TCHAR		szJPGPath[MAX_PATH];
 		TCHAR		szPNGPath[MAX_PATH];
+		TCHAR		szWEBPPath[MAX_PATH];
 		StringCchCopy(szJPGPath, MAX_PATH, szSource);
 
 		PathRemoveFileSpec(szJPGPath);
 
 		StringCchCopy(szPNGPath, MAX_PATH, szJPGPath);
+		StringCchCopy(szWEBPPath, MAX_PATH, szJPGPath);
 
 		PathAppend(szJPGPath, TEXT("folder.jpg"));
 		PathAppend(szPNGPath, TEXT("folder.png"));
+		PathAppend(szWEBPPath, TEXT("folder.webp"));
 
-		if((StrCmpI(szJPGPath, m_AlbumArtPanel.GetCurrentArtSource()) == 0) || (StrCmpI(szPNGPath, m_AlbumArtPanel.GetCurrentArtSource()) == 0))
+		if((StrCmpI(szJPGPath, m_AlbumArtPanel.GetCurrentArtSource()) == 0) || (StrCmpI(szPNGPath, m_AlbumArtPanel.GetCurrentArtSource()) == 0) || (StrCmpI(szWEBPPath, m_AlbumArtPanel.GetCurrentArtSource()) == 0))
 			return false;
 
 		if(m_AlbumArtPanel.SetSource(szJPGPath))
@@ -3346,6 +3384,11 @@ bool	CTuniacApp::GetArt(LPTSTR szSource)
 		{
 			bArtSuccess = true;
 			m_AlbumArtPanel.SetCurrentArtSource(szPNGPath);
+		}
+		else if (m_AlbumArtPanel.SetSource(szWEBPPath))
+		{
+			bArtSuccess = true;
+			m_AlbumArtPanel.SetCurrentArtSource(szWEBPPath);
 		}
 	}
 
@@ -3393,8 +3436,10 @@ bool	CTuniacApp::PlayEntry(IPlaylistEntry * pIPE, bool bStart, bool bAuto, bool 
 					pPlaylistEX->SetActiveRealIndex(pPlaylistEX->GetRealIndexforEntry(pIPE));
 			}
 
-
-			if (CCoreAudio::Instance()->SetSource((LPTSTR)pIPE->GetField(FIELD_URL), (float *)pIPE->GetField(FIELD_REPLAYGAIN_ALBUM_GAIN), (float *)pIPE->GetField(FIELD_REPLAYGAIN_TRACK_GAIN), bResetAudio))
+			bool bOutputDisabled = false;
+			if (pPlaylist->GetPlaylistType() == PLAYLIST_TYPE_MIC)
+				bOutputDisabled = true;
+			if (CCoreAudio::Instance()->SetSource((LPTSTR)pIPE->GetField(FIELD_URL), (float *)pIPE->GetField(FIELD_REPLAYGAIN_ALBUM_GAIN), (float *)pIPE->GetField(FIELD_REPLAYGAIN_TRACK_GAIN), bResetAudio, bOutputDisabled))
 			{
 				if (bStart)
 					CCoreAudio::Instance()->Play();

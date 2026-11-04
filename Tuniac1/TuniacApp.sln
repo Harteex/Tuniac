@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.0.32014.148
+VisualStudioVersion = 17.9.34714.143
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TuniacApp", "TuniacApp\TuniacApp.vcxproj", "{97CC9F89-20A5-454D-A824-030021ADFD15}"
 EndProject
@@ -35,6 +35,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "textOutput_Plugin", "textOutput_Plugin\textOutput_Plugin.vcxproj", "{73541B64-9540-425D-B97F-6011486D1DB9}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Jellyfin_Plugin", "Jellyfin_Plugin\Jellyfin_Plugin.vcxproj", "{CFC6C23B-5CE4-467C-B946-BDCDEE024913}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TuniacGoomVisualPlugin", "TuniacGoomVisualPlugin\TuniacGoomVisualPlugin.vcxproj", "{9A4074D7-045F-4540-B23B-0A5A8F0B421C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -91,9 +93,11 @@ Global
 		{1FCCD4B9-4974-4CDD-96E2-E2694CCF7204}.Debug|Win32.ActiveCfg = Debug|Win32
 		{1FCCD4B9-4974-4CDD-96E2-E2694CCF7204}.Debug|Win32.Build.0 = Debug|Win32
 		{1FCCD4B9-4974-4CDD-96E2-E2694CCF7204}.Debug|x64.ActiveCfg = Debug|x64
+		{1FCCD4B9-4974-4CDD-96E2-E2694CCF7204}.Debug|x64.Build.0 = Debug|x64
 		{1FCCD4B9-4974-4CDD-96E2-E2694CCF7204}.Release|Win32.ActiveCfg = Release|Win32
 		{1FCCD4B9-4974-4CDD-96E2-E2694CCF7204}.Release|Win32.Build.0 = Release|Win32
 		{1FCCD4B9-4974-4CDD-96E2-E2694CCF7204}.Release|x64.ActiveCfg = Release|x64
+		{1FCCD4B9-4974-4CDD-96E2-E2694CCF7204}.Release|x64.Build.0 = Release|x64
 		{3EA65DF6-01ED-43CB-9EC6-C6F85306C0A5}.Debug|Win32.ActiveCfg = Debug|Win32
 		{3EA65DF6-01ED-43CB-9EC6-C6F85306C0A5}.Debug|Win32.Build.0 = Debug|Win32
 		{3EA65DF6-01ED-43CB-9EC6-C6F85306C0A5}.Debug|x64.ActiveCfg = Debug|x64
@@ -174,6 +178,14 @@ Global
 		{CFC6C23B-5CE4-467C-B946-BDCDEE024913}.Release|Win32.Build.0 = Release|Win32
 		{CFC6C23B-5CE4-467C-B946-BDCDEE024913}.Release|x64.ActiveCfg = Release|x64
 		{CFC6C23B-5CE4-467C-B946-BDCDEE024913}.Release|x64.Build.0 = Release|x64
+		{9A4074D7-045F-4540-B23B-0A5A8F0B421C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9A4074D7-045F-4540-B23B-0A5A8F0B421C}.Debug|Win32.Build.0 = Debug|Win32
+		{9A4074D7-045F-4540-B23B-0A5A8F0B421C}.Debug|x64.ActiveCfg = Debug|x64
+		{9A4074D7-045F-4540-B23B-0A5A8F0B421C}.Debug|x64.Build.0 = Debug|x64
+		{9A4074D7-045F-4540-B23B-0A5A8F0B421C}.Release|Win32.ActiveCfg = Release|Win32
+		{9A4074D7-045F-4540-B23B-0A5A8F0B421C}.Release|Win32.Build.0 = Release|Win32
+		{9A4074D7-045F-4540-B23B-0A5A8F0B421C}.Release|x64.ActiveCfg = Release|x64
+		{9A4074D7-045F-4540-B23B-0A5A8F0B421C}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

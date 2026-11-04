@@ -58,7 +58,7 @@ IDD_SOURCESELECTOR DIALOGEX 0, 0, 396, 286
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_CLIPCHILDREN
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
-    CONTROL         "",IDC_SOURCESELECTOR,"SysListView32",LVS_REPORT | LVS_SHOWSELALWAYS | LVS_NOLABELWRAP | LVS_EDITLABELS | LVS_ALIGNLEFT | LVS_OWNERDATA | LVS_NOCOLUMNHEADER | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP,7,7,92,255
+    CONTROL         "",IDC_SOURCESELECTOR,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_NOLABELWRAP | LVS_EDITLABELS | LVS_ALIGNLEFT | LVS_OWNERDATA | LVS_NOCOLUMNHEADER | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP,7,7,92,255
     PUSHBUTTON      "Add",IDC_SOURCE_ADDPLAYLIST,7,265,43,14
     PUSHBUTTON      "Delete",IDC_SOURCE_DELPLAYLIST,51,265,50,14
 END
@@ -250,11 +250,14 @@ BEGIN
     CONTROL         "",IDC_VISUAL_FPS,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,14,19,207,15
     LTEXT           "Slower, Less CPU",IDC_STATIC,14,38,61,8
     RTEXT           "Faster, More CPU",IDC_STATIC,158,38,63,8
-    LTEXT           "100 FPS",IDC_VISUAL_FPSDISPLAY,104,38,27,8
+    LTEXT           "144 FPS",IDC_VISUAL_FPSDISPLAY,104,38,27,8
     GROUPBOX        "FullScreen Options",IDC_STATIC,7,81,222,44
     COMBOBOX        IDC_VISUAL_CHANGERESCOMBO,14,108,207,30,CBS_DROPDOWN | CBS_SORT | WS_DISABLED | WS_VSCROLL | WS_TABSTOP
     CONTROL         "Change resolution",IDC_VISUAL_CHANGERESCHECK,"Button",BS_AUTOCHECKBOX | WS_DISABLED | WS_TABSTOP,14,94,207,8
     LTEXT           "Warning: DO NOT exceed monitor refresh rate, normally 60.",IDC_STATIC,14,53,207,13
+    GROUPBOX        "Microphone Input",IDC_STATIC,7,137,221,29
+    CONTROL         "Show microphone playlist",IDC_VISUAL_SHOWMICINPUTPLAYLIST,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,14,151,96,10
 END
 
 IDD_PREFERENCES_AUDIO DIALOGEX 0, 0, 236, 206
@@ -415,7 +418,7 @@ BEGIN
     ICON            IDI_TUNIAC,IDC_STATIC,23,12,20,20,SS_CENTERIMAGE
     LTEXT           "Tuniac 1.0",IDC_ABOUTBOXTUNIAC_TEXT,61,14,107,30
     LTEXT           "Developed by \nTony Million, Brett Hoyle, Blur, Mike Vierya, Daniel, Brice and RA",IDC_ABOUTBOXDEV_TEXT,7,46,245,16
-    LTEXT           "Tuniac uses code from:\nBASSlib, libjpeg-turbo, libpng, taglib,\n kissfft, glew, zlib and others.\nMuch thanks to their developers.\nSee the various about screens for more information.\n",IDC_ABOUTBOXTHANKS_TEXT,7,73,245,42
+    LTEXT           "Tuniac uses code from:\nBASSlib, libjpeg-turbo, libspng, simplewebp, taglib,\n kissfft, glew, goom, zlib and others.\nMuch thanks to their developers.\nSee about screens and opensource.txt for more information.\n",IDC_ABOUTBOXTHANKS_TEXT,7,73,245,42
     LTEXT           "Build:",IDC_ABOUT_BUILD_TEXT,171,14,69,30
 END
 
@@ -442,6 +445,14 @@ BEGIN
     PUSHBUTTON      "&About",IDC_SERVICEPLUGIN_ABOUT,119,179,50,14,WS_DISABLED
     PUSHBUTTON      "&Enable All",IDC_SERVICEPLUGIN_ENABLEALL,14,179,50,14
     PUSHBUTTON      "&Disable All",IDC_SERVICEPLUGIN_DISABLEALL,67,179,50,14
+END
+
+IDD_MICINPUTSOURCE DIALOGEX 0, 0, 391, 262
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD
+FONT 8, "MS Shell Dlg", 0, 0, 0x0
+BEGIN
+    CONTROL         "",IDC_MICSOURCE_TRACKLIST,"SysListView32",LVS_REPORT | LVS_SHOWSELALWAYS | LVS_ALIGNLEFT | LVS_OWNERDATA | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP,7,32,377,204
+    PUSHBUTTON      "Refresh",IDC_MICSOURCE_REFRESH,326,241,58,14,NOT WS_VISIBLE
 END
 
 
@@ -722,6 +733,16 @@ BEGIN
         HORZGUIDE, 19
         HORZGUIDE, 156
     END
+
+    IDD_MICINPUTSOURCE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 384
+        VERTGUIDE, 20
+        VERTGUIDE, 371
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 255
+    END
 END
 #endif    // APSTUDIO_INVOKED
 
@@ -847,8 +868,8 @@ BEGIN
         MENUITEM "&Queue",                      ID_QUEUE
         MENUITEM "Pause &here",                 ID_PAUSEHERE
         MENUITEM SEPARATOR
-        MENUITEM "To &new playlist",            ID_TONEWPLAYLIST
-        MENUITEM "&Filter by field",            ID_FILTERBYFIELD
+        MENUITEM "&Selected to new playlist",   ID_SELECTEDTONEWPLAYLIST
+        MENUITEM "&Field to new playlist",      ID_FIELDTONEWPLAYLIST
         MENUITEM "Q&ueue by field",             ID_QUEUEBYFIELD
         MENUITEM SEPARATOR
         MENUITEM "&Remove",                     ID_REMOVE
@@ -908,11 +929,15 @@ IDI_THEMEICON_PLAYLIST_MEDIALIBRARY ICON                    ".\\default-theme\\p
 
 IDI_THEMEICON_PLAYLIST_STANDARD ICON                    ".\\default-theme\\playlist-standard.ico"
 
+IDI_THEMEICON_PLAYLIST_MIC ICON                    ".\\default-theme\\playlist-radio.ico"
+
 IDI_THEMEICON_PLAYLIST_CD ICON                    ".\\default-theme\\playlist-cd.ico"
 
 IDI_THEMEICON_PLAYLIST_MEDIALIBRARY_ACTIVE ICON                    ".\\default-theme\\playlist-medialibrary-active.ico"
 
 IDI_THEMEICON_PLAYLIST_STANDARD_ACTIVE ICON                    ".\\default-theme\\playlist-standard-active.ico"
+
+IDI_THEMEICON_PLAYLIST_MIC_ACTIVE ICON                    ".\\default-theme\\playlist-radio-active.ico"
 
 IDI_THEMEICON_PLAYLIST_CD_ACTIVE ICON                    ".\\default-theme\\playlist-cd-active.ico"
 

@@ -90,6 +90,7 @@
 #define VISUALFPS				TEXT("VisualFPS")
 #define CURRENTVISUAL			TEXT("CurrentVisual")
 #define SHOWVISART				TEXT("ShowVisArt")
+#define SHOWMICINPUTPLAYLIST	TEXT("ShowMicInputPlaylist")
 
 #define PLAYLISTVIEWNUMCOLS		TEXT("PlaylistViewNumCols")
 #define PLAYLISTVIEWCOLIDS		TEXT("PlaylistViewColIDs")
@@ -1535,8 +1536,9 @@ LRESULT CALLBACK CPreferences::VisualsProc(HWND hDlg, UINT uMsg, WPARAM wParam, 
 				SetWindowLongPtr(hDlg, GWLP_USERDATA, lParam);
 				pPrefs = (CPreferences *)lParam;
 
-				SendDlgItemMessage(hDlg, IDC_VISUAL_FPS, TBM_SETRANGE, TRUE, MAKELONG(25, 100));
+				SendDlgItemMessage(hDlg, IDC_VISUAL_FPS, TBM_SETRANGE, TRUE, MAKELONG(25, 144));
 				SendDlgItemMessage(hDlg, IDC_VISUAL_FPS, TBM_SETPOS,	TRUE, pPrefs->m_iVisualFPS);
+				SendDlgItemMessage(hDlg, IDC_VISUAL_SHOWMICINPUTPLAYLIST, BM_SETCHECK, pPrefs->m_bShowMicInputPlaylist ? BST_CHECKED : BST_UNCHECKED, 0);
 
 				TCHAR	tstr[32];
 				StringCchPrintf(tstr, 32, TEXT("%d FPS"), pPrefs->m_iVisualFPS);
@@ -1560,6 +1562,25 @@ LRESULT CALLBACK CPreferences::VisualsProc(HWND hDlg, UINT uMsg, WPARAM wParam, 
 								tuniacApp.m_VisualWindow->SetVisualFPS(pPrefs->m_iVisualFPS);
 						}
 						break;
+				}
+			}
+			break;
+
+		case WM_COMMAND:
+			{
+				WORD wCmdID = LOWORD(wParam);
+
+				switch (wCmdID)
+				{
+					case IDC_VISUAL_SHOWMICINPUTPLAYLIST:
+					{
+						int State = SendDlgItemMessage(hDlg, IDC_VISUAL_SHOWMICINPUTPLAYLIST, BM_GETCHECK, 0, 0);
+						pPrefs->m_bShowMicInputPlaylist = State == BST_UNCHECKED ? FALSE : TRUE;
+
+						tuniacApp.m_PlaylistManager.m_MicPlaylist.SetEnabled(pPrefs->m_bShowMicInputPlaylist);
+
+					}
+					break;
 				}
 			}
 			break;
@@ -2158,6 +2179,7 @@ bool CPreferences::DefaultPreferences(void)
 	m_iVisualFPS				= 60;
 	m_iCurrentVisual			= 1;
 	m_bShowVisArt				= 0;
+	m_bShowMicInputPlaylist		= 0;
 
 	m_iFileAssocType			= FILEASSOC_TYPE_OPEN;
 
@@ -2507,6 +2529,14 @@ bool CPreferences::LoadPreferences(void)
 						(LPBYTE)&m_bShowVisArt,
 						&Size);
 
+	Size = sizeof(BOOL);
+	RegQueryValueEx(	hTuniacPrefKey,
+						SHOWMICINPUTPLAYLIST,
+						NULL,
+						&Type,
+						(LPBYTE)&m_bShowMicInputPlaylist,
+						&Size);
+
 	Size = sizeof(int);
 	RegQueryValueEx(	hTuniacPrefKey,
 						VOLUME,
@@ -2667,6 +2697,7 @@ bool CPreferences::LoadPreferences(void)
 		(LPBYTE)m_UserSearchField,
 		&Size);
 
+	/* on screen move done in tuniacApp.cpp
 	if(m_MainWindowRect.left < 0)
 		m_MainWindowRect.left = CW_USEDEFAULT;
 
@@ -2678,6 +2709,7 @@ bool CPreferences::LoadPreferences(void)
 
 	if(m_MainWindowRect.bottom < 500)
 		m_MainWindowRect.bottom = CW_USEDEFAULT;
+		*/
 
 	RegCloseKey(hTuniacPrefKey);
 
@@ -2970,6 +3002,13 @@ bool CPreferences::SavePreferences(void)
 					0,
 					REG_DWORD,
 					(LPBYTE)&m_bShowVisArt, 
+					sizeof(BOOL));
+
+	RegSetValueEx(	hTuniacPrefKey,
+					SHOWMICINPUTPLAYLIST,
+					0,
+					REG_DWORD,
+					(LPBYTE)&m_bShowMicInputPlaylist,
 					sizeof(BOOL));
 
 	RegSetValueEx(	hTuniacPrefKey, 
@@ -3709,6 +3748,11 @@ int		CPreferences::GetDelayInSecs(void)
 BOOL		CPreferences::GetShowAlbumArt(void)
 {
 	return m_bShowAlbumArt;
+}
+
+BOOL		CPreferences::GetShowMicInputPlaylist(void)
+{
+	return m_bShowMicInputPlaylist;
 }
 
 BOOL		CPreferences::GetArtOnSelection(void)
